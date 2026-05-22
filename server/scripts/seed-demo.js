@@ -38,7 +38,7 @@ async function seed() {
     .returning(['id', 'name']);
   console.log(`  ✓ Organisation créée : ${org.name} (${org.id})`);
 
-  const hash = await bcrypt.hash('password123', SALT_ROUNDS);
+  const hash = await bcrypt.hash('Password123!', SALT_ROUNDS);
 
   // 2. Utilisateurs
   const [admin] = await db('users')

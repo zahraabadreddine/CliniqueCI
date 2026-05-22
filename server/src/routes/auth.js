@@ -106,8 +106,12 @@ module.exports = function authRoutes(db) {
   router.post('/logout', authenticate, async (req, res, next) => {
     try {
       const refreshToken = req.cookies?.refresh_token;
-      if (refreshToken) {
-        await db('refresh_tokens').where({ token: refreshToken }).delete();
+      // Tenter la suppression par token ; si aucune ligne affectée, révoquer par user_id
+      const deleted = refreshToken
+        ? await db('refresh_tokens').where({ token: refreshToken }).del()
+        : 0;
+      if (deleted === 0) {
+        await db('refresh_tokens').where({ user_id: req.user.id }).del();
       }
       res.clearCookie('access_token');
       res.clearCookie('refresh_token');

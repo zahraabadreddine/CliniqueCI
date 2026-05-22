@@ -99,8 +99,8 @@ NODE_ENV=development
 PORT=3001
 CLIENT_URL=http://localhost:5173
 
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cliniqueci_dev
-TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cliniqueci_test
+DATABASE_URL=postgresql://cliniqueci:devpassword@localhost:5432/cliniqueci_dev
+TEST_DATABASE_URL=postgresql://cliniqueci:devpassword@localhost:5432/cliniqueci_test
 
 JWT_SECRET=changez-moi-secret-long-aleatoire-64-chars
 JWT_REFRESH_SECRET=changez-moi-autre-secret-long-64-chars
@@ -154,13 +154,20 @@ Comptes de test (créés par le seed) :
 
 ---
 
-## Lancer avec Docker
+## Lancer avec Docker (développement)
+
+`docker-compose.dev.yml` démarre **uniquement la base de données** PostgreSQL. Le serveur et le frontend tournent localement via `npm run dev`.
 
 ```bash
 cp .env.example .env
-# (éditer .env avec vos valeurs)
+# (éditer .env si nécessaire)
 
-docker compose -f docker-compose.dev.yml up --build
+# Démarre uniquement PostgreSQL
+docker compose -f docker-compose.dev.yml up -d
+
+# Puis dans deux terminaux séparés :
+cd server && npm run dev   # Terminal 1 — API sur :3001
+cd client && npm run dev   # Terminal 2 — Frontend sur :5173
 ```
 
 Ouvrir **http://localhost:5173**
