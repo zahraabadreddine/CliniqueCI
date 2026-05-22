@@ -14,26 +14,22 @@ Les cliniques privées d'Abidjan gèrent encore leurs patients sur papier : regi
 
 ## Captures d'écran
 
-| Dashboard Admin | Agenda Médecin | Dossier Patient |
-|---|---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Agenda](docs/screenshots/agenda.png) | ![Patient](docs/screenshots/patient.png) |
-
-| Prise de RDV (Patient) | Ordonnance | Assistant IA Awa |
-|---|---|---|
-| ![RDV](docs/screenshots/appointment.png) | ![Ordonnance](docs/screenshots/prescription.png) | ![Awa](docs/screenshots/awa.png) |
+> Screenshots disponibles après déploiement VPS.
 
 ---
 
 ## Démo en ligne
 
-🔗 **[https://cliniqueci.zahraabadreddine.com](https://cliniqueci.zahraabadreddine.com)**
+> 🚧 Déploiement VPS en cours — la démo sera disponible prochainement.
+
+Pour tester en local, utiliser les comptes créés par `node scripts/seed-demo.js` :
 
 | Rôle | Email | Mot de passe |
 |---|---|---|
-| Admin | `admin@demo.ci` | `Demo123!` |
-| Médecin | `doctor@demo.ci` | `Demo123!` |
-| Secrétaire | `secretary@demo.ci` | `Demo123!` |
-| Patient | `patient@demo.ci` | `Demo123!` |
+| Admin | `admin@clinique-plateau.ci` | `Password123!` |
+| Médecin | `aminata@clinique-plateau.ci` | `Password123!` |
+| Secrétaire | `rana@clinique-plateau.ci` | `Password123!` |
+| Patient | `karim@email.ci` | `Password123!` |
 
 ---
 
@@ -148,8 +144,16 @@ cd client && npm run dev
 
 Ouvrir **http://localhost:5173**
 
-Compte de test (créé par le seed) :
-- Email : `admin@clinique1.ci` · Mot de passe : `Password123!`
+Comptes de test (créés par le seed) :
+
+| Rôle | Email | Mot de passe |
+|---|---|---|
+| Admin | `admin@cabinet-cocody.ci` | `password123` |
+| Médecin | `aminata@clinique-plateau.ci` | `password123` |
+| Secrétaire | `rana@clinique-plateau.ci` | `password123` |
+| Patient | `karim@email.ci` | `password123` |
+
+> Pour des données de démo plus riches : `cd server && node scripts/seed-demo.js`
 
 ---
 
