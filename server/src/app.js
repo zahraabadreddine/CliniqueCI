@@ -17,7 +17,15 @@ const awaRoutes = require('./routes/awa');
 const app = express();
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // En développement, accepter tous les ports localhost
+    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    // En production, n'accepter que CLIENT_URL
+    const allowed = process.env.CLIENT_URL || 'http://localhost:5173';
+    callback(origin === allowed ? null : new Error('CORS non autorisé'), origin === allowed);
+  },
   credentials: true,
 }));
 app.use(express.json());

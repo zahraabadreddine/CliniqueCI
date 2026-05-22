@@ -13,7 +13,7 @@ const DEMO_ROLES = [
     emoji: '👩‍⚕️',
     cls: 'green',
     email: 'aminata@clinique-plateau.ci',
-    password: 'password123',
+    password: 'Password123!',
   },
   {
     id: 'secretary',
@@ -22,7 +22,7 @@ const DEMO_ROLES = [
     emoji: '👩‍💼',
     cls: 'gold',
     email: 'rana@clinique-plateau.ci',
-    password: 'password123',
+    password: 'Password123!',
   },
   {
     id: 'patient',
@@ -31,7 +31,7 @@ const DEMO_ROLES = [
     emoji: '🧑',
     cls: 'blue',
     email: 'karim@email.ci',
-    password: 'password123',
+    password: 'Password123!',
   },
 ];
 
