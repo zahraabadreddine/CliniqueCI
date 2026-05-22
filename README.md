@@ -99,14 +99,11 @@ NODE_ENV=development
 PORT=3001
 CLIENT_URL=http://localhost:5173
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=cliniqueci_dev
-DB_USER=postgres
-DB_PASSWORD=postgres
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cliniqueci_dev
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cliniqueci_test
 
-JWT_SECRET=changez-moi-secret-long-aleatoire
-JWT_REFRESH_SECRET=changez-moi-autre-secret-long
+JWT_SECRET=changez-moi-secret-long-aleatoire-64-chars
+JWT_REFRESH_SECRET=changez-moi-autre-secret-long-64-chars
 
 # Optionnel — laisser vide pour utiliser le mode démo d'Awa
 ANTHROPIC_API_KEY=
@@ -182,7 +179,7 @@ createdb cliniqueci_test
 npm test
 
 # Avec couverture
-npm test -- --coverage
+npm run test:coverage
 ```
 
 **Résultat attendu : 120 tests, 9 suites, couverture ≥ 70%**
@@ -238,8 +235,9 @@ CliniqueCI/
 │   │   └── App.jsx                # Routing + PrivateRoute
 │   └── nginx-spa.conf             # Config nginx SPA
 ├── server/                        # Backend Express
-│   ├── migrations/                # Migrations Knex (001–008)
+│   ├── migrations/                # Migrations Knex (001–009)
 │   ├── seeds/                     # Données de test
+│   ├── scripts/                   # Scripts utilitaires (seed-demo.js)
 │   ├── src/
 │   │   ├── middleware/            # authenticate, tenant, authorize, errorHandler
 │   │   ├── routes/                # auth, users, patients, appointments…
