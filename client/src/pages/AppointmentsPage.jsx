@@ -155,10 +155,11 @@ function BookingModal({ onClose }) {
   );
 }
 
-function AppointmentCard({ appointment, onStatusChange, canEdit }) {
+function AppointmentCard({ appointment, onStatusChange, canEdit, changingId }) {
   const s = STATUS_MAP[appointment.status] ?? STATUS_MAP.pending;
   const dt = new Date(appointment.scheduled_at);
   const timeStr = dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const isChanging = changingId === appointment.id;
 
   return (
     <div className={`appt-card ${s.cls}`}>
@@ -181,16 +182,18 @@ function AppointmentCard({ appointment, onStatusChange, canEdit }) {
           <button
             className="btn btn-sm"
             style={{ background: 'var(--green-pale)', color: 'var(--green)', flex: 1, justifyContent: 'center' }}
+            disabled={isChanging}
             onClick={() => onStatusChange(appointment.id, 'confirmed')}
           >
-            Confirmer
+            {isChanging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Confirmer'}
           </button>
           <button
             className="btn btn-sm btn-danger"
             style={{ flex: 1, justifyContent: 'center' }}
+            disabled={isChanging}
             onClick={() => onStatusChange(appointment.id, 'cancelled')}
           >
-            Annuler
+            {isChanging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Annuler'}
           </button>
         </div>
       )}
@@ -199,16 +202,18 @@ function AppointmentCard({ appointment, onStatusChange, canEdit }) {
           <button
             className="btn btn-sm"
             style={{ background: 'var(--blue-pale, #e8f0fe)', color: 'var(--blue, #1a56db)', flex: 1, justifyContent: 'center' }}
+            disabled={isChanging}
             onClick={() => onStatusChange(appointment.id, 'in-room')}
           >
-            <Icon name="stethoscope" size={12} /> Appeler
+            {isChanging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <><Icon name="stethoscope" size={12} /> Appeler</>}
           </button>
           <button
             className="btn btn-sm btn-danger"
             style={{ flex: 1, justifyContent: 'center' }}
+            disabled={isChanging}
             onClick={() => onStatusChange(appointment.id, 'cancelled')}
           >
-            Annuler
+            {isChanging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Annuler'}
           </button>
         </div>
       )}
@@ -217,9 +222,10 @@ function AppointmentCard({ appointment, onStatusChange, canEdit }) {
           <button
             className="btn btn-sm"
             style={{ background: 'var(--green-pale)', color: 'var(--green)', width: '100%', justifyContent: 'center' }}
+            disabled={isChanging}
             onClick={() => onStatusChange(appointment.id, 'completed')}
           >
-            Terminer la consultation
+            {isChanging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Terminer la consultation'}
           </button>
         </div>
       )}
@@ -231,6 +237,7 @@ export default function AppointmentsPage() {
   const { user } = useContext(AuthContext);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [showModal, setShowModal] = useState(false);
+  const [statusError, setStatusError] = useState('');
   const queryClient = useQueryClient();
 
   const canEdit = ['admin', 'secretary', 'doctor'].includes(user?.role);
@@ -242,7 +249,11 @@ export default function AppointmentsPage() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => api.patch(`/appointments/${id}/status`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+    onSuccess: () => {
+      setStatusError('');
+      queryClient.invalidateQueries({ queryKey: ['appointments', date] });
+    },
+    onError: (err) => setStatusError(err?.error || 'Erreur lors de la mise à jour du statut'),
   });
 
   const bySlot = appointments.reduce((acc, a) => {
@@ -258,6 +269,22 @@ export default function AppointmentsPage() {
 
   return (
     <div className="page-content">
+      {statusError && (
+        <div style={{
+          padding: '.75rem 1rem', marginBottom: '1rem',
+          background: 'var(--red-soft)', border: '1px solid var(--red)',
+          borderRadius: 10, fontSize: 13, color: 'var(--red)',
+          display: 'flex', alignItems: 'center', gap: '.5rem',
+        }}>
+          <Icon name="warning" size={15} />
+          {statusError}
+          <button
+            onClick={() => setStatusError('')}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 16 }}
+          >×</button>
+        </div>
+      )}
+
       <div className="page-header">
         <div>
           <h1>Agenda</h1>
@@ -311,6 +338,7 @@ export default function AppointmentsPage() {
                         key={a.id}
                         appointment={a}
                         canEdit={canEdit}
+                        changingId={statusMutation.isPending ? statusMutation.variables?.id : null}
                         onStatusChange={(id, s) => statusMutation.mutate({ id, status: s })}
                       />
                     ))}
