@@ -47,7 +47,7 @@ module.exports = function appointmentsRoutes(db) {
     }
   });
 
-  router.post('/', authorize('admin', 'secretary', 'patient'), async (req, res, next) => {
+  router.post('/', authorize('admin', 'secretary', 'doctor', 'patient'), async (req, res, next) => {
     try {
       const { error, value } = createSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
