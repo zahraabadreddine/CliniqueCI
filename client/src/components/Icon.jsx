@@ -62,6 +62,7 @@ export default function Icon({ name, size = 18, stroke = 1.7, color, className =
     userPlus: <><circle cx="10" cy="8" r="4"/><path d="M2 20a8 8 0 0 1 14.3-5"/><path d="M19 16v6M16 19h6"/></>,
     x: <><path d="M18 6 6 18M6 6l12 12"/></>,
     alert: <><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16v.01"/></>,
+    whatsapp: <><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9z"/><path d="M9 10c.2.4.6 1.3 1.4 1.6.8.3 2 .2 2-.2 0-.3-.6-.5-1-.7-.5-.1-1-.3-1.3-.8-.3-.6.1-1.4.7-1.8.4-.3 1-.3 1.4 0 .4.2.7.7.7 1.2"/></>,
   };
 
   return <svg {...common}>{paths[name] || null}</svg>;

@@ -2,8 +2,19 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
 const authenticate = require('../middleware/authenticate');
 const { registerSchema, loginSchema } = require('../validators/auth');
+
+// Limite : 10 tentatives de connexion par IP toutes les 15 minutes
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+  message: { error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' },
+});
 
 const SALT_ROUNDS = 12;
 
@@ -69,7 +80,7 @@ module.exports = function authRoutes(db) {
     }
   });
 
-  router.post('/login', async (req, res, next) => {
+  router.post('/login', loginLimiter, async (req, res, next) => {
     try {
       const { error, value } = loginSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
@@ -77,13 +88,17 @@ module.exports = function authRoutes(db) {
       const { email, password } = value;
       const user = await db('users')
         .where({ email })
-        .select('id', 'organization_id', 'role', 'email', 'first_name', 'last_name', 'password_hash')
+        .select('id', 'organization_id', 'role', 'email', 'first_name', 'last_name', 'password_hash', 'is_active')
         .first();
 
       if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
 
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) return res.status(401).json({ error: 'Identifiants invalides' });
+
+      if (user.is_active === false) {
+        return res.status(403).json({ error: 'Compte suspendu. Contactez votre administrateur.' });
+      }
 
       const refreshToken = issueTokens(user, res);
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -135,8 +150,15 @@ module.exports = function authRoutes(db) {
 
       const user = await db('users')
         .where({ id: stored.user_id })
-        .select('id', 'organization_id', 'role')
+        .select('id', 'organization_id', 'role', 'is_active')
         .first();
+
+      if (!user || user.is_active === false) {
+        await db('refresh_tokens').where({ token: refreshToken }).del();
+        res.clearCookie('access_token');
+        res.clearCookie('refresh_token');
+        return res.status(403).json({ error: 'Compte suspendu. Contactez votre administrateur.' });
+      }
 
       const newRefreshToken = uuidv4();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);

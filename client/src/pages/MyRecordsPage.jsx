@@ -63,7 +63,7 @@ function TabDossier({ patient }) {
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#12a07c,#0d7a5f)',
+          background: 'linear-gradient(135deg,#2ec472,#22a05e)',
           display: 'grid', placeItems: 'center',
           color: '#fff', fontSize: 22, fontWeight: 700,
           flexShrink: 0, letterSpacing: 1,
@@ -187,7 +187,9 @@ function TabOrdonnances({ prescriptions }) {
                   <span style={{ fontWeight: 600 }}>{med.name}</span>
                   <span style={{ color: 'var(--muted)' }}> — {med.dosage}</span>
                   <div className="text-xs" style={{ color: 'var(--muted)', marginTop: 2 }}>
-                    {med.frequency} · {med.duration}
+                    {med.instructions || med.frequency
+                      ? `${med.instructions || med.frequency} · `
+                      : ''}{med.duration}
                   </div>
                 </div>
               </div>
@@ -220,7 +222,7 @@ function TabFactures({ invoices }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem' }}>
             <div style={{
               width: 40, height: 40, borderRadius: 11, flexShrink: 0,
-              background: inv.status === 'paid' ? 'var(--green-pale)' : inv.status === 'cancelled' ? '#fdf2f2' : '#fefce8',
+              background: inv.status === 'paid' ? 'var(--green-pale)' : inv.status === 'cancelled' ? 'var(--red-soft)' : 'var(--gold-soft)',
               display: 'grid', placeItems: 'center',
               color: inv.status === 'paid' ? 'var(--green)' : inv.status === 'cancelled' ? 'var(--red)' : 'var(--gold)',
             }}>

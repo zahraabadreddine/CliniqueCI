@@ -10,7 +10,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.migrate.rollback(null, true);
-  await db.destroy();
 });
 
 beforeEach(async () => {

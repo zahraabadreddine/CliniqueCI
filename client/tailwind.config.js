@@ -4,22 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        /* ── Vert africain clair — palette primaire ── */
         primary: {
-          50:  '#f0faf7',
-          100: '#d9f2eb',
-          200: '#b3e5d7',
-          300: '#7dd1bb',
-          400: '#44b89b',
-          500: '#0d7a5f',
-          600: '#0a6350',
-          700: '#084e3f',
-          800: '#063a2f',
-          900: '#042820',
+          50:  '#edfbf2',   /* très pâle */
+          100: '#d0f4e1',
+          200: '#a3e8c3',
+          300: '#6ed8a1',
+          400: '#3ec47e',
+          500: '#22a05e',   /* ← couleur principale */
+          600: '#1a8a4e',
+          700: '#156b3d',
+          800: '#0f4e2c',
+          900: '#0a3520',
         },
-        cream: '#faf9f5',
+        cream:   '#faf8f3',
+        cream2:  '#f0ebe0',
+        gold:    '#d4a017',
+        ink:     '#0f172a',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans:  ['"DM Sans"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        serif: ['"Playfair Display"', 'Georgia', 'serif'],
+        mono:  ['"JetBrains Mono"', 'Menlo', 'monospace'],
       },
     },
   },

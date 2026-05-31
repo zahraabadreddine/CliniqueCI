@@ -3,220 +3,239 @@ const Anthropic = require('@anthropic-ai/sdk');
 const authenticate = require('../middleware/authenticate');
 const tenant = require('../middleware/tenant');
 
-const SYSTEM_PROMPTS = {
-  doctor: `Tu es Awa, l'assistante IA de CliniqueCI, une application de gestion de cliniques à Abidjan.
-Tu assistes le médecin : aide à rédiger des notes de consultation, préparer des résumés patients, suggérer des diagnostics différentiels, et répondre aux questions médicales générales.
-Tu réponds toujours en français, de manière concise et professionnelle.
-Tu ne poses jamais de diagnostic définitif — tu proposes des pistes et rappelles l'importance de l'examen clinique.
-Tu n'as pas accès aux données patients réelles sauf celles que le médecin te communique dans la conversation.`,
+// ─── Context builder: fetch live clinic data for richer AI responses ──────────
+async function buildClinicContext(db, orgId, userId, userRole) {
+  try {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateLabel = today.toLocaleDateString('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
 
-  secretary: `Tu es Awa, l'assistante IA de CliniqueCI, une application de gestion de cliniques à Abidjan.
-Tu assistes la secrétaire médicale : aide à gérer le planning, rédiger des messages aux patients, optimiser les créneaux, et répondre aux questions administratives.
-Tu réponds toujours en français, de manière claire et pratique.`,
+    const [org] = await db('organizations').where({ id: orgId }).select('name');
+    const clinicName = org?.name || 'la clinique';
 
-  patient: `Tu es Awa, l'assistante IA de CliniqueCI, une application de gestion de cliniques à Abidjan.
-Tu es une assistante bienveillante qui aide les patients à comprendre leur parcours de soins, prendre des rendez-vous, et répondre à leurs questions générales sur la santé.
-Tu réponds toujours en français, simplement et avec empathie.
-Ne pose jamais de diagnostic — oriente toujours vers le médecin pour toute question médicale précise.`,
+    // Today's appointments
+    const todayAppts = await db('appointments')
+      .where({ organization_id: orgId })
+      .whereRaw("DATE(scheduled_at) = ?", [todayStr])
+      .select('status', 'reason', 'scheduled_at')
+      .orderBy('scheduled_at', 'asc')
+      .limit(20);
 
-  admin: `Tu es Awa, l'assistante IA de CliniqueCI, une application de gestion de cliniques à Abidjan.
-Tu assistes l'administrateur : aide à analyser les données de la clinique, optimiser les processus, et répondre aux questions de gestion.
-Tu réponds toujours en français, de manière professionnelle.`,
-};
+    const apptStats = {
+      total: todayAppts.length,
+      pending: todayAppts.filter(a => a.status === 'pending').length,
+      confirmed: todayAppts.filter(a => a.status === 'confirmed').length,
+      waiting: todayAppts.filter(a => a.status === 'waiting').length,
+      inRoom: todayAppts.filter(a => a.status === 'in-room').length,
+      completed: todayAppts.filter(a => a.status === 'completed').length,
+      cancelled: todayAppts.filter(a => a.status === 'cancelled').length,
+    };
 
-// Demo responses for when the API has no credits (realistic responses for clinic demo)
-function getDemoResponse(message, userRole) {
-  const msg = (message || '').toLowerCase();
+    // Patient count
+    const [{ count: patientCount }] = await db('patients')
+      .where({ organization_id: orgId })
+      .count('id as count');
 
-  // Greeting / identity
-  if (msg.match(/bonjour|salut|bonsoir|hello|qui es.?tu|présente|présentation/)) {
-    return `Bonjour ! Je suis **Awa**, votre assistante IA intégrée à CliniqueCI. 🌿
+    // This month's invoice stats
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const invoicesMonth = await db('invoices')
+      .where({ organization_id: orgId })
+      .where('created_at', '>=', monthStart)
+      .select('status', 'amount');
 
-Je suis conçue pour aider l'équipe de la clinique à :
-- **Préparer des résumés** de dossiers patients avant consultation
-- **Rédiger des notes** médicales et administratives
-- **Optimiser le planning** et gérer les rendez-vous
-- **Répondre aux questions** médicales et administratives courantes
+    const invoiceStats = {
+      total: invoicesMonth.length,
+      paid: invoicesMonth.filter(i => i.status === 'paid').length,
+      pending: invoicesMonth.filter(i => i.status === 'pending').length,
+      totalAmount: invoicesMonth.reduce((s, i) => s + Number(i.amount || 0), 0),
+    };
 
-Comment puis-je vous aider aujourd'hui ?`;
-  }
+    // Doctor-specific: their own appointments today
+    let doctorContext = '';
+    if (userRole === 'doctor') {
+      const myAppts = await db('appointments')
+        .where({ organization_id: orgId, doctor_id: userId })
+        .whereRaw("DATE(scheduled_at) = ?", [todayStr])
+        .join('patients', 'appointments.patient_id', 'patients.id')
+        .select(
+          'appointments.status',
+          'appointments.reason',
+          'appointments.scheduled_at',
+          'patients.first_name',
+          'patients.last_name',
+        )
+        .orderBy('appointments.scheduled_at', 'asc')
+        .limit(10);
 
-  // Appointment / agenda
-  if (msg.match(/rendez.?vous|agenda|planning|créneau|disponib/)) {
-    if (userRole === 'secretary' || userRole === 'admin') {
-      return `Pour optimiser votre agenda d'aujourd'hui, voici mes suggestions :
-
-📅 **Gestion des créneaux**
-- Vous avez 4 rendez-vous confirmés ce matin
-- Je recommande de garder un créneau tampon de 15 min entre les consultations longues
-- Ousmane Diallo (09h00) est marqué "Confirmé" — pensez à préparer son dossier
-
-📞 **Rappels patients**
-Les patients avec rendez-vous cet après-midi n'ont pas encore reçu leur SMS de rappel. Souhaitez-vous que je rédige un message de rappel type ?`;
+      if (myAppts.length > 0) {
+        doctorContext = `\n\n## Vos consultations aujourd'hui (${myAppts.length}):\n`;
+        myAppts.forEach(a => {
+          const heure = new Date(a.scheduled_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          doctorContext += `- ${heure} · ${a.first_name} ${a.last_name} · ${a.reason || 'Consultation générale'} · Statut: ${a.status}\n`;
+        });
+      }
     }
-    return `Voici vos rendez-vous du jour :
 
-**08h30** — Karim Meïté · Consultation générale ✅ Terminé
-**09h00** — Ousmane Diallo · Renouvellement ordonnance 🔵 Confirmé
-**10h00** — Fatou Koné · Contrôle tension artérielle ✅ Terminé
-**11h30** — Karim Meïté · Bilan sanguin ✅ Terminé
-
-Souhaitez-vous que je prépare un résumé du dossier d'Ousmane Diallo avant sa consultation ?`;
+    return {
+      clinicName,
+      dateLabel,
+      apptStats,
+      patientCount: Number(patientCount),
+      invoiceStats,
+      doctorContext,
+    };
+  } catch {
+    // Context injection is best-effort — never block the AI response
+    return null;
   }
-
-  // Patient summary / dossier
-  if (msg.match(/résumé|dossier|patient|antécédent|historique/)) {
-    return `**Résumé patient — Ousmane Diallo**
-📋 *Préparé par Awa AI*
-
-**Motif de la visite :** Renouvellement d'ordonnance
-
-**Antécédents notables :**
-- Hypertension artérielle traitée depuis 2 ans
-- Diabète de type 2 sous metformine
-
-**Dernière consultation :** Mars 2026
-- TA : 135/85 mmHg (contrôlée)
-- Glycémie à jeun : 1,15 g/L
-
-**Médicaments en cours :**
-- Amlodipine 5mg · 1cp/jour
-- Metformine 500mg · 2cp/jour
-
-**Points d'attention :** Rappeler la surveillance glycémique régulière et la diète.
-
-*Ce résumé est généré à titre indicatif. Vérifiez toujours le dossier complet avant consultation.*`;
-  }
-
-  // Diagnosis / medical question
-  if (msg.match(/diagnostic|symptôme|traitement|médicament|maladie|douleur|fièvre|tension/)) {
-    return `**Pistes diagnostiques à considérer** *(avis non médical — pour discussion uniquement)*
-
-Sur la base des symptômes décrits, les hypothèses à explorer avec l'examen clinique :
-
-1. **Hypothèse principale** — À détailler selon les constantes vitales et l'anamnèse complète
-2. **Diagnostic différentiel** — Plusieurs étiologies sont envisageables
-
-📌 **Rappel important :** Je peux vous aider à structurer vos notes et explorer des pistes, mais le diagnostic final appartient au clinicien après examen complet du patient.
-
-Souhaitez-vous que je vous aide à rédiger la note de consultation ?`;
-  }
-
-  // Invoice / billing
-  if (msg.match(/facture|paiement|tarif|prix|facturation|caisse/)) {
-    return `**Aperçu facturation du jour**
-
-💰 **Statistiques (aujourd'hui)**
-- Consultations facturées : 3
-- Total encaissé : 45 000 FCFA
-- En attente de règlement : 15 000 FCFA (1 facture)
-
-📊 **Ce mois-ci**
-- Chiffre d'affaires : 380 000 FCFA
-- Consultations : 28
-- Taux de recouvrement : 94%
-
-Souhaitez-vous que je génère un rapport de facturation détaillé ?`;
-  }
-
-  // Prescription / ordonnance
-  if (msg.match(/ordonnance|prescription|médicament|posologie/)) {
-    return `**Assistant ordonnance** ✍️
-
-Je peux vous aider à structurer une ordonnance. Voici un modèle standard :
-
----
-*Clinique du Plateau — Dr. [Nom]*
-*Date : 21 Mai 2026*
-
-**Patient :** [Nom complet]
-
-**Prescriptions :**
-1. [Médicament] [Dosage] — [Posologie] pendant [durée]
-2. [Médicament] [Dosage] — [Posologie] pendant [durée]
-
-**Conseils :** [Instructions particulières]
-
-*Prochain contrôle : [Date]*
----
-
-Dictez-moi les médicaments à inclure et je formate l'ordonnance pour vous.`;
-  }
-
-  // Note / rédaction
-  if (msg.match(/note|rédige|écris|compte.?rendu|rapport/)) {
-    return `Bien sûr, je peux vous aider à rédiger. Voici une structure suggérée :
-
-**Note de consultation**
-
-**Motif :** [À préciser]
-**Anamnèse :** Le patient se présente pour...
-**Examen clinique :** TA : _/_ mmHg · FC : _ bpm · Temp : _°C
-**Diagnostic retenu :** [À préciser]
-**Conduite à tenir :** [Traitement / examens complémentaires]
-**Prochain RDV :** [Date]
-
-Donnez-moi les éléments de la consultation et je rédigerai la note complète.`;
-  }
-
-  // Statistics / reporting
-  if (msg.match(/statistique|rapport|analyse|performance|chiffre/)) {
-    return `**Tableau de bord analytique — Mai 2026**
-
-📈 **Activité clinique**
-- Consultations ce mois : 28 (+12% vs avril)
-- Nouveaux patients : 8
-- Taux d'occupation : 78%
-
-⏱️ **Efficacité**
-- Durée moyenne de consultation : 22 min
-- Taux de présence aux RDV : 91%
-- Délai moyen d'attente : 8 min
-
-🏆 **Points forts**
-- Excellente fidélisation patients (72% de retours)
-- Créneaux du mardi matin très demandés
-
-💡 **Recommandation :** Ajouter un créneau le mardi après-midi pour absorber la demande.`;
-  }
-
-  // Generic / fallback demo
-  const roleResponses = {
-    doctor: `Je suis à votre disposition, Docteur. Je peux vous aider à :
-- **Préparer vos consultations** avec des résumés patients
-- **Rédiger vos notes** de consultation et ordonnances
-- **Explorer des diagnostics différentiels** pour les cas complexes
-- **Répondre à vos questions** médicales générales
-
-Quelle est votre demande ?`,
-
-    secretary: `Bonjour ! Je peux vous aider avec :
-- **La gestion de l'agenda** et des rendez-vous
-- **La rédaction de messages** aux patients
-- **Le suivi des factures** et paiements
-- **Les rappels** et notifications patients
-
-Comment puis-je vous assister ?`,
-
-    admin: `Bonjour ! En tant qu'administrateur, je peux vous fournir :
-- **Des analyses de performance** de la clinique
-- **Des rapports financiers** et statistiques
-- **Des recommandations** pour optimiser les processus
-- **Un suivi** des indicateurs clés
-
-Que souhaitez-vous analyser ?`,
-
-    patient: `Bonjour ! Je suis là pour vous aider. Je peux :
-- **Vous informer** sur votre prochain rendez-vous
-- **Répondre à vos questions** générales sur la clinique
-- **Vous orienter** vers le bon médecin selon vos besoins
-
-Pour toute question médicale précise, votre médecin reste votre référence. Comment puis-je vous aider ?`,
-  };
-
-  return roleResponses[userRole] || roleResponses.patient;
 }
 
+// ─── System prompt builder ────────────────────────────────────────────────────
+function buildSystemPrompt(role, context) {
+  const date = context?.dateLabel || new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  const clinic = context?.clinicName || 'la clinique';
+
+  const base = `Tu es **Awa**, l'assistante IA intelligente intégrée à **CliniqueCI** — une application SaaS de gestion de cliniques privées à Abidjan, Côte d'Ivoire.
+
+**Date d'aujourd'hui :** ${date}
+**Clinique :** ${clinic}
+
+## Règles absolues
+- Tu réponds TOUJOURS en français, avec un langage adapté à l'interlocuteur
+- Tu es précise, utile et concise (pas de remplissage inutile)
+- Tu utilises le formatage Markdown (gras, listes) pour la lisibilité
+- Tu connais le contexte ivoirien : FCFA, système de santé local, noms locaux
+- Tu n'inventes PAS de données patients — tu travailles uniquement avec ce que l'utilisateur te communique
+- Si tu n'es pas sûre, tu le dis clairement plutôt que d'inventer`;
+
+  const rolePrompts = {
+    doctor: `${base}
+
+## Ton rôle avec le médecin
+Tu es un assistant médical expert. Tu aides le médecin à :
+- **Rédiger des notes de consultation** structurées (motif, anamnèse, examen, diagnostic, conduite)
+- **Structurer des ordonnances** avec posologie claire
+- **Explorer des diagnostics différentiels** pour les cas complexes
+- **Répondre aux questions** de pharmacologie, protocoles, et médecine générale
+- **Préparer des résumés** avant consultation
+
+## Limites médicales importantes
+- Tu PROPOSES des pistes — jamais de diagnostic définitif
+- Tu rappelles toujours l'importance de l'examen clinique physique
+- Pour les urgences, tu orientes vers les protocoles d'urgence
+
+${context?.doctorContext || ''}
+${context?.apptStats ? `\n## Agenda aujourd'hui : ${context.apptStats.total} RDV (${context.apptStats.confirmed} confirmés, ${context.apptStats.completed} terminés, ${context.apptStats.waiting} en attente)` : ''}`,
+
+    secretary: `${base}
+
+## Ton rôle avec la secrétaire médicale
+Tu es une assistante administrative efficace. Tu aides à :
+- **Gérer et optimiser l'agenda** : créneaux, conflits, rappels patients
+- **Rédiger des communications** : SMS/emails de rappel, confirmations de RDV
+- **Suivre les paiements** : factures en attente, rappels de règlement
+- **Accueillir et orienter** les patients
+
+## Ce que tu NE fais PAS pour la secrétaire
+- Jamais d'accès aux notes médicales confidentielles ou diagnostics
+- Jamais de validation d'actes médicaux
+
+${context?.apptStats ? `\n## Agenda aujourd'hui : ${context.apptStats.total} RDV total
+- En attente : ${context.apptStats.pending} · Confirmés : ${context.apptStats.confirmed}
+- Salle d'attente : ${context.apptStats.waiting} · En consultation : ${context.apptStats.inRoom}
+- Terminés : ${context.apptStats.completed} · Annulés : ${context.apptStats.cancelled}` : ''}
+${context?.invoiceStats ? `\n## Facturation ce mois : ${context.invoiceStats.total} factures · ${context.invoiceStats.pending} en attente · ${context.invoiceStats.totalAmount.toLocaleString('fr-FR')} FCFA total` : ''}`,
+
+    admin: `${base}
+
+## Ton rôle avec l'administrateur
+Tu es un assistant de gestion stratégique. Tu aides à :
+- **Analyser les performances** : taux d'occupation, CA, tendances
+- **Optimiser les processus** : planification, ressources humaines
+- **Générer des rapports** : activité, finances, qualité de service
+- **Identifier des axes d'amélioration** opérationnelle
+
+${context?.apptStats ? `\n## Aujourd'hui : ${context.apptStats.total} RDV · ${context.apptStats.completed} terminés` : ''}
+${context?.patientCount ? `**Patients enregistrés :** ${context.patientCount}` : ''}
+${context?.invoiceStats ? `**Ce mois :** ${context.invoiceStats.total} factures · ${context.invoiceStats.paid} payées · ${context.invoiceStats.totalAmount.toLocaleString('fr-FR')} FCFA` : ''}`,
+
+    patient: `${base}
+
+## Ton rôle avec le patient
+Tu es une assistante patiente et bienveillante. Tu aides le patient à :
+- **Comprendre son parcours de soins** à la clinique
+- **Se préparer à sa consultation** : documents à apporter, questions à poser
+- **Comprendre des termes médicaux** courants (vulgarisés, pas techniques)
+- **Gérer ses rendez-vous** : prise, modification, annulation
+
+## Limites importantes avec les patients
+- JAMAIS de diagnostic ou d'interprétation de résultats d'examens
+- Pour toute question médicale précise → orienter vers le médecin
+- En cas d'urgence → orienter vers le SAMU (15) ou les urgences
+
+Tu t'exprimes simplement, avec empathie, sans jargon médical.`,
+  };
+
+  return rolePrompts[role] || rolePrompts.patient;
+}
+
+// ─── Fallback demo responses (when API unavailable) ──────────────────────────
+function getDemoResponse(message, userRole, context) {
+  const msg = (message || '').toLowerCase();
+  const clinic = context?.clinicName || 'la clinique';
+
+  if (msg.match(/bonjour|salut|bonsoir|hello|hi\b|coucou/)) {
+    const greetings = {
+      doctor: `Bonjour Docteur ! Je suis **Awa**, votre assistante IA.\n\n${context?.doctorContext ? `Voici votre agenda :\n${context.doctorContext}\n\n` : ''}Je peux vous aider à rédiger vos notes de consultation, explorer des diagnostics différentiels ou structurer une ordonnance. Par quoi commençons-nous ?`,
+      secretary: `Bonjour ! Je suis **Awa**.\n\n${context?.apptStats ? `📅 Aujourd'hui : **${context.apptStats.total} rendez-vous** (${context.apptStats.confirmed} confirmés, ${context.apptStats.waiting} en salle d'attente).\n\n` : ''}Comment puis-je vous aider avec l'agenda ou les patients ?`,
+      admin: `Bonjour ! Je suis **Awa**, votre assistante de gestion.\n\n${context?.patientCount ? `**${context.patientCount} patients** enregistrés à ${clinic}.\n` : ''}${context?.invoiceStats ? `Ce mois : **${context.invoiceStats.totalAmount.toLocaleString('fr-FR')} FCFA** de facturation.\n\n` : ''}Que souhaitez-vous analyser ?`,
+      patient: `Bonjour ! Je suis **Awa**, l'assistante de ${clinic}. Je suis là pour vous aider à préparer votre consultation ou répondre à vos questions sur la clinique.\n\nComment puis-je vous aider ?`,
+    };
+    return greetings[userRole] || greetings.patient;
+  }
+
+  if (msg.match(/agend|rendez.?vous|planning|cr.neau|rdv|aujourd.hui|journée|planning/)) {
+    if (context?.apptStats && context.apptStats.total > 0) {
+      const s = context.apptStats;
+      return `📅 **Agenda d'aujourd'hui — ${clinic}**\n\n- **Total :** ${s.total} rendez-vous\n- **Confirmés :** ${s.confirmed}\n- **En salle d'attente :** ${s.waiting}\n- **En consultation :** ${s.inRoom}\n- **Terminés :** ${s.completed}\n- **Annulés :** ${s.cancelled}\n\nVoulez-vous que je vous aide à rédiger des rappels patients ou à optimiser les créneaux ?`;
+    }
+    return `📅 Votre agenda est vide pour aujourd'hui.\n\nVoulez-vous que je vous aide à planifier des créneaux ou à rédiger un message de disponibilité pour les patients ?`;
+  }
+
+  if (msg.match(/note|consultation|r.dige|compte.?rendu|cr.dite|prescrip/)) {
+    return `**Modèle de note de consultation**\n\n**Motif de consultation :** _(à dicter)_\n\n**Anamnèse :**\nPatient de ___ ans, se présente pour...\n\n**Examen clinique :**\n- TA : ___/___ mmHg · FC : ___ bpm · Temp : ___°C\n- Examen général : ...\n\n**Diagnostic retenu :**\n\n**Conduite à tenir :**\n- Traitement : ...\n- Examens complémentaires : ...\n\n**Prochain contrôle :** ___\n\n---\n_Dictez-moi les éléments et je rédige la note complète._`;
+  }
+
+  if (msg.match(/ordonnance|prescription|médicament|posologie/)) {
+    return `**Assistant ordonnance** ✍️\n\nDictez-moi les médicaments, dosages et durées — je formate l'ordonnance.\n\nExemple : *"Paracétamol 500mg, 3 fois par jour pendant 5 jours"*\n\nJe structurerai le tout avec les informations de la clinique et les conseils au patient.`;
+  }
+
+  if (msg.match(/facture|paiement|caisse|facturation|argent|montant|solde|finances?/)) {
+    if (context?.invoiceStats) {
+      const inv = context.invoiceStats;
+      return `💰 **Facturation — ce mois**\n\n- **Total factures :** ${inv.total}\n- **Payées :** ${inv.paid}\n- **En attente :** ${inv.pending}\n- **Montant total :** ${inv.totalAmount.toLocaleString('fr-FR')} FCFA\n\nVoulez-vous que je génère un message de relance pour les factures impayées ?`;
+    }
+    return `Je peux vous aider à suivre les factures et préparer des relances de paiement. Consultez le module **Facturation** pour le détail des règlements en attente.`;
+  }
+
+  if (msg.match(/patient|dossier|ant.c.dent|malade|nom/)) {
+    return `Je peux vous aider à préparer un résumé patient. Communiquez-moi :\n\n1. **Le nom du patient** (je n'ai pas accès directement aux dossiers)\n2. **Le motif de consultation**\n3. **Les antécédents pertinents**\n\nJe structurerai un résumé clair pour la consultation.`;
+  }
+
+  const fallbacks = {
+    doctor: `Comment puis-je vous aider, Docteur ?\n\n- 📋 **Rédiger une note de consultation**\n- 💊 **Structurer une ordonnance**\n- 🔬 **Explorer des diagnostics différentiels**\n- 📊 **Résumer un dossier patient**`,
+    secretary: `Comment puis-je vous aider ?\n\n- 📅 **Vérifier l'agenda du jour**\n- 📨 **Rédiger un rappel patient**\n- 💰 **Suivre les factures en attente**\n- 📞 **Préparer un message d'accueil**`,
+    admin: `Comment puis-je vous aider ?\n\n- 📈 **Analyser l'activité de la clinique**\n- 💰 **Rapport financier mensuel**\n- 👥 **Suivi des patients et médecins**\n- ⚙️ **Recommandations d'optimisation**`,
+    patient: `Comment puis-je vous aider ?\n\n- 📅 **Votre prochain rendez-vous**\n- ❓ **Questions sur la clinique**\n- 📋 **Comment se préparer à une consultation**\n- 🏥 **Informations générales de santé**`,
+  };
+  return fallbacks[userRole] || fallbacks.patient;
+}
+
+// ─── Route ───────────────────────────────────────────────────────────────────
 module.exports = function awaRoutes(db) {
   const router = express.Router();
   router.use(authenticate, tenant);
@@ -229,29 +248,33 @@ module.exports = function awaRoutes(db) {
         return res.status(400).json({ error: 'Messages requis' });
       }
 
-      const systemPrompt = SYSTEM_PROMPTS[userRole] || SYSTEM_PROMPTS.patient;
+      // Fetch real clinic context
+      const context = await buildClinicContext(db, req.orgId, req.user.id, userRole);
+      const systemPrompt = buildSystemPrompt(userRole, context);
+      const lastUserMsg = messages.filter(m => m.role === 'user').at(-1)?.content || '';
 
       if (!process.env.ANTHROPIC_API_KEY) {
-        const lastUserMsg = messages.filter(m => m.role === 'user').at(-1)?.content || '';
-        return res.json({ content: getDemoResponse(lastUserMsg, userRole) });
+        return res.json({ content: getDemoResponse(lastUserMsg, userRole, context) });
       }
 
       try {
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
         const response = await client.messages.create({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 1024,
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 2048,
           system: systemPrompt,
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          messages: messages.map(m => ({
+            role: m.role,
+            content: String(m.content),
+          })),
         });
 
         return res.json({ content: response.content[0].text });
       } catch (apiErr) {
-        // If API has no credits or is unavailable, fall back to demo mode
+        // Fallback to demo for billing/quota errors
         if (apiErr.status === 400 || apiErr.status === 429 || apiErr.status === 402) {
-          const lastUserMsg = messages.filter(m => m.role === 'user').at(-1)?.content || '';
-          return res.json({ content: getDemoResponse(lastUserMsg, userRole) });
+          return res.json({ content: getDemoResponse(lastUserMsg, userRole, context) });
         }
         throw apiErr;
       }

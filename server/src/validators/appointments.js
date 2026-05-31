@@ -9,7 +9,7 @@ const createSchema = Joi.object({
 });
 
 const statusSchema = Joi.object({
-  status: Joi.string().valid('confirmed', 'in-room', 'cancelled', 'completed').required(),
+  status: Joi.string().valid('confirmed', 'waiting', 'in-room', 'cancelled', 'completed').required(),
 });
 
 module.exports = { createSchema, statusSchema };

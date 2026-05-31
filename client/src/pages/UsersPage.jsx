@@ -27,24 +27,47 @@ function initials(u) {
   return ((u.first_name?.[0] ?? '') + (u.last_name?.[0] ?? '')).toUpperCase();
 }
 
+// ── ConfirmModal ──────────────────────────────────────────────────────────────
+function ConfirmModal({ title, message, onConfirm, onCancel, danger = true, loading = false }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div className="modal-header">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+            <Icon name="warning" size={18} style={{ color: danger ? 'var(--red)' : 'var(--gold)' }} />
+            {title}
+          </h2>
+        </div>
+        <div className="modal-body">
+          <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>{message}</p>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onCancel} disabled={loading}>Annuler</button>
+          <button
+            className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`}
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? 'En cours…' : 'Confirmer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── InviteModal ───────────────────────────────────────────────────────────────
 function InviteModal({ onClose, onSuccess }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm();
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm();
+  const watchedRole = watch('role');
 
   const mutation = useMutation({
     mutationFn: (data) => api.post('/users', data),
-    onSuccess: (user) => {
-      reset();
-      onSuccess(user);
-    },
+    onSuccess: (user) => { reset(); onSuccess(user); },
   });
 
   const submit = handleSubmit(async (data) => {
-    try {
-      await mutation.mutateAsync(data);
-    } catch (err) {
-      // error displayed below
-    }
+    try { await mutation.mutateAsync(data); } catch {}
   });
 
   return (
@@ -104,6 +127,17 @@ function InviteModal({ onClose, onSuccess }) {
             {errors.role && <span className="field-error">{errors.role.message}</span>}
           </div>
 
+          {watchedRole === 'doctor' && (
+            <div className="form-group">
+              <label>Spécialité</label>
+              <input
+                className="input"
+                placeholder="Ex : Cardiologie, Pédiatrie…"
+                {...register('specialty')}
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label>Mot de passe provisoire *</label>
             <input
@@ -141,8 +175,9 @@ function EditModal({ user: u, onClose, onSuccess }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: {
       first_name: u.first_name,
-      last_name: u.last_name,
-      email: u.email,
+      last_name:  u.last_name,
+      email:      u.email,
+      specialty:  u.specialty ?? '',
     },
   });
 
@@ -198,6 +233,17 @@ function EditModal({ user: u, onClose, onSuccess }) {
             {errors.email && <span className="field-error">{errors.email.message}</span>}
           </div>
 
+          {u.role === 'doctor' && (
+            <div className="form-group">
+              <label>Spécialité</label>
+              <input
+                className="input"
+                placeholder="Ex : Cardiologie, Pédiatrie…"
+                {...register('specialty')}
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label>Rôle</label>
             <input
@@ -230,41 +276,64 @@ function EditModal({ user: u, onClose, onSuccess }) {
 }
 
 // ── UserRow ───────────────────────────────────────────────────────────────────
-function UserRow({ user: u, currentUserId, onEdit }) {
+function UserRow({ user: u, currentUserId, onEdit, onToggleStatus }) {
+  const isCurrentUser = u.id === currentUserId;
+  const isSuspended   = u.is_active === false;
+
   const joined = u.created_at
     ? new Date(u.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     : '—';
 
   return (
-    <div className="data-row" style={{ alignItems: 'center', gap: '1rem' }}>
+    <div className="data-row" style={{ alignItems: 'center', gap: '1rem', opacity: isSuspended ? 0.55 : 1 }}>
       {/* Avatar */}
       <div style={{
         width: 40, height: 40, borderRadius: 12,
-        background: u.role === 'doctor' ? 'var(--green-pale)' : 'var(--cream)',
+        background: isSuspended
+          ? 'var(--border)'
+          : (u.role === 'doctor' ? 'var(--green-pale)' : 'var(--cream)'),
         display: 'grid', placeItems: 'center',
         fontFamily: "'DM Sans', sans-serif",
         fontWeight: 700, fontSize: 14,
-        color: u.role === 'doctor' ? 'var(--green)' : 'var(--muted)',
+        color: isSuspended
+          ? 'var(--muted)'
+          : (u.role === 'doctor' ? 'var(--green)' : 'var(--muted)'),
         flexShrink: 0,
         border: '1.5px solid',
-        borderColor: u.role === 'doctor' ? 'var(--green-pale)' : 'var(--border)',
+        borderColor: isSuspended
+          ? 'var(--border)'
+          : (u.role === 'doctor' ? 'var(--green-pale)' : 'var(--border)'),
       }}>
         {initials(u)}
       </div>
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
           {u.first_name} {u.last_name}
-          {u.id === currentUserId && (
+          {isCurrentUser && (
             <span style={{
               fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
               background: 'var(--green-pale)', color: 'var(--green)',
               borderRadius: 5, padding: '1px 6px',
             }}>VOUS</span>
           )}
+          {isSuspended && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
+              background: 'var(--red-soft)', color: 'var(--red)',
+              borderRadius: 5, padding: '1px 6px',
+            }}>SUSPENDU</span>
+          )}
         </div>
-        <div className="text-xs text-muted" style={{ marginTop: 2 }}>{u.email}</div>
+        <div className="text-xs text-muted" style={{ marginTop: 2 }}>
+          {u.email}
+          {u.specialty && (
+            <span style={{ marginLeft: 8, color: 'var(--green)', fontWeight: 500 }}>
+              · {u.specialty}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Role */}
@@ -283,6 +352,21 @@ function UserRow({ user: u, currentUserId, onEdit }) {
       >
         <Icon name="edit" size={15} />
       </button>
+
+      {/* Suspend / Reactivate — hidden for self and other admins */}
+      {!isCurrentUser && u.role !== 'admin' ? (
+        <button
+          className={`btn btn-sm ${isSuspended ? 'btn-primary' : 'btn-danger'}`}
+          onClick={() => onToggleStatus(u)}
+          title={isSuspended ? 'Réactiver le compte' : 'Suspendre le compte'}
+          style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}
+        >
+          {isSuspended ? 'Réactiver' : 'Suspendre'}
+        </button>
+      ) : (
+        /* keep row height consistent */
+        <div style={{ width: 80 }} />
+      )}
     </div>
   );
 }
@@ -292,26 +376,64 @@ export default function UsersPage() {
   const { user: currentUser } = useContext(AuthContext);
   const queryClient = useQueryClient();
 
-  const [showInvite, setShowInvite] = useState(false);
-  const [editTarget, setEditTarget]  = useState(null);
-  const [roleFilter, setRoleFilter]  = useState('all');
+  const [showInvite,    setShowInvite]    = useState(false);
+  const [editTarget,    setEditTarget]    = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null); // { user, newStatus }
+  const [roleFilter,    setRoleFilter]    = useState('all');
+  const [statusFilter,  setStatusFilter]  = useState('active'); // 'active' | 'suspended' | 'all'
 
   const { data: users = [], isLoading, isError } = useQuery({
     queryKey: ['users'],
     queryFn: () => api.get('/users'),
   });
 
-  const filtered = roleFilter === 'all'
-    ? users
-    : users.filter(u => u.role === roleFilter);
+  const statusMutation = useMutation({
+    mutationFn: ({ id, is_active }) => api.patch(`/users/${id}/status`, { is_active }),
+    onSuccess: (_data, variables) => {
+      // Mise à jour immédiate du cache — pas de refetch réseau
+      queryClient.setQueryData(['users'], (old) =>
+        Array.isArray(old)
+          ? old.map(u => u.id === variables.id ? { ...u, is_active: variables.is_active } : u)
+          : old
+      );
+      setConfirmTarget(null);
+    },
+    onError: () => {
+      setConfirmTarget(null);
+    },
+  });
 
-  const handleInviteSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+  const handleToggleStatus = (u) => {
+    setConfirmTarget({ user: u, newStatus: !u.is_active });
+  };
+
+  const handleConfirmStatus = () => {
+    if (!confirmTarget) return;
+    statusMutation.mutate({ id: confirmTarget.user.id, is_active: confirmTarget.newStatus });
+  };
+
+  const filtered = users.filter(u => {
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+    if (statusFilter === 'active'    && u.is_active === false) return false;
+    if (statusFilter === 'suspended' && u.is_active !== false) return false;
+    return true;
+  });
+
+  const handleInviteSuccess = (newUser) => {
+    // Ajout immédiat du nouvel utilisateur dans le cache
+    queryClient.setQueryData(['users'], (old) =>
+      Array.isArray(old) ? [...old, newUser] : [newUser]
+    );
     setShowInvite(false);
   };
 
-  const handleEditSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+  const handleEditSuccess = (updatedUser) => {
+    // Remplacement immédiat de l'utilisateur modifié dans le cache
+    queryClient.setQueryData(['users'], (old) =>
+      Array.isArray(old)
+        ? old.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u)
+        : old
+    );
     setEditTarget(null);
   };
 
@@ -322,13 +444,22 @@ export default function UsersPage() {
     secretary: users.filter(u => u.role === 'secretary').length,
   };
 
+  const suspendedCount = users.filter(u => u.is_active === false).length;
+
   return (
     <div className="page-content">
       {/* Header */}
       <div className="page-header">
         <div>
           <h1>Équipe médicale</h1>
-          <div className="subtitle">{users.length} membre{users.length > 1 ? 's' : ''} dans votre organisation</div>
+          <div className="subtitle">
+            {users.length} membre{users.length > 1 ? 's' : ''} dans votre organisation
+            {suspendedCount > 0 && (
+              <span style={{ marginLeft: 8, color: 'var(--red)', fontWeight: 600 }}>
+                · {suspendedCount} suspendu{suspendedCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={() => setShowInvite(true)}>
@@ -338,32 +469,73 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Role filter tabs */}
-      <div className="tabs" style={{ marginBottom: '1.5rem' }}>
-        {[
-          { key: 'all',       label: 'Tous' },
-          { key: 'doctor',    label: 'Médecins' },
-          { key: 'secretary', label: 'Secrétaires' },
-          { key: 'admin',     label: 'Admins' },
-        ].map(t => (
-          <button
-            key={t.key}
-            className={`tab ${roleFilter === t.key ? 'active' : ''}`}
-            onClick={() => setRoleFilter(t.key)}
-          >
-            {t.label}
-            {roleTabCounts[t.key] > 0 && (
-              <span style={{
-                marginLeft: 6,
-                background: roleFilter === t.key ? 'var(--green)' : 'var(--border)',
-                color: roleFilter === t.key ? '#fff' : 'var(--muted)',
-                borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600,
-              }}>
-                {roleTabCounts[t.key]}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Filters row */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {/* Role tabs */}
+        <div className="tabs" style={{ flex: 1, minWidth: 0 }}>
+          {[
+            { key: 'all',       label: 'Tous' },
+            { key: 'doctor',    label: 'Médecins' },
+            { key: 'secretary', label: 'Secrétaires' },
+            { key: 'admin',     label: 'Admins' },
+          ].map(t => (
+            <button
+              key={t.key}
+              className={`tab ${roleFilter === t.key ? 'active' : ''}`}
+              onClick={() => setRoleFilter(t.key)}
+            >
+              {t.label}
+              {roleTabCounts[t.key] > 0 && (
+                <span style={{
+                  marginLeft: 6,
+                  background: roleFilter === t.key ? 'var(--green)' : 'var(--border)',
+                  color: roleFilter === t.key ? '#fff' : 'var(--muted)',
+                  borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600,
+                }}>
+                  {roleTabCounts[t.key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Status toggle */}
+        <div style={{
+          display: 'flex', gap: '2px',
+          background: 'var(--cream)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '3px',
+          flexShrink: 0,
+        }}>
+          {[
+            { key: 'active',    label: 'Actifs' },
+            { key: 'suspended', label: 'Suspendus' },
+            { key: 'all',       label: 'Tous' },
+          ].map(s => (
+            <button
+              key={s.key}
+              onClick={() => setStatusFilter(s.key)}
+              style={{
+                padding: '4px 12px', fontSize: 12, fontWeight: 600,
+                borderRadius: 6, border: 'none', cursor: 'pointer',
+                background: statusFilter === s.key ? 'var(--surface)' : 'transparent',
+                color: statusFilter === s.key ? 'var(--ink)' : 'var(--muted)',
+                boxShadow: statusFilter === s.key ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+                transition: 'all .15s',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              {s.label}
+              {s.key === 'suspended' && suspendedCount > 0 && (
+                <span style={{
+                  background: 'var(--red-soft)', color: 'var(--red)',
+                  borderRadius: 20, padding: '0 6px', fontSize: 10, fontWeight: 700,
+                }}>
+                  {suspendedCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Content */}
@@ -376,18 +548,18 @@ export default function UsersPage() {
           </div>
         ) : isError ? (
           <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--red)' }}>
-            <Icon name="alert" size={32} style={{ opacity: .4, marginBottom: '.5rem', display: 'block', margin: '0 auto .5rem' }} />
+            <Icon name="alert" size={32} style={{ opacity: .4, display: 'block', margin: '0 auto .5rem' }} />
             <div>Erreur lors du chargement de l'équipe.</div>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--muted)' }}>
             <Icon name="users" size={36} style={{ opacity: .2, display: 'block', margin: '0 auto .75rem' }} />
             <div style={{ fontWeight: 500, marginBottom: '.35rem' }}>
-              {roleFilter === 'all' ? 'Aucun membre dans votre équipe' : `Aucun ${ROLE_LABELS[roleFilter]?.toLowerCase() ?? roleFilter}`}
+              Aucun membre correspondant à ces critères
             </div>
-            <div style={{ fontSize: 13 }}>
-              Invitez votre premier collaborateur en cliquant sur « Inviter un membre ».
-            </div>
+            {statusFilter === 'suspended' && (
+              <div style={{ fontSize: 13 }}>Aucun compte suspendu dans votre organisation.</div>
+            )}
           </div>
         ) : (
           <div className="data-list">
@@ -397,6 +569,7 @@ export default function UsersPage() {
                 user={u}
                 currentUserId={currentUser?.id}
                 onEdit={setEditTarget}
+                onToggleStatus={handleToggleStatus}
               />
             ))}
           </div>
@@ -415,6 +588,20 @@ export default function UsersPage() {
           user={editTarget}
           onClose={() => setEditTarget(null)}
           onSuccess={handleEditSuccess}
+        />
+      )}
+      {confirmTarget && (
+        <ConfirmModal
+          title={confirmTarget.newStatus ? 'Réactiver le compte' : 'Suspendre le compte'}
+          message={
+            confirmTarget.newStatus
+              ? `Réactiver le compte de ${confirmTarget.user.first_name} ${confirmTarget.user.last_name} ? Cette personne pourra à nouveau se connecter.`
+              : `Suspendre le compte de ${confirmTarget.user.first_name} ${confirmTarget.user.last_name} ? Toutes les sessions actives seront immédiatement invalidées.`
+          }
+          danger={!confirmTarget.newStatus}
+          onConfirm={handleConfirmStatus}
+          onCancel={() => setConfirmTarget(null)}
+          loading={statusMutation.isPending}
         />
       )}
     </div>

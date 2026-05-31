@@ -50,7 +50,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.migrate.rollback(null, true);
-  await db.destroy();
 });
 
 beforeEach(async () => {
@@ -171,6 +170,13 @@ describe('PATCH /api/appointments/:id/status', () => {
   });
 
   it('change le statut vers in-room (médecin)', async () => {
+    // pending → confirmed (requis par la machine d'état)
+    await request(app)
+      .patch(`/api/appointments/${appointmentId}/status`)
+      .set('Cookie', adminCookies)
+      .send({ status: 'confirmed' });
+
+    // confirmed → in-room (médecin uniquement)
     const res = await request(app)
       .patch(`/api/appointments/${appointmentId}/status`)
       .set('Cookie', doctorCookies)

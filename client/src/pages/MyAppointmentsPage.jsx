@@ -22,12 +22,13 @@ function minDateTime() {
 function BookingModal({ onClose }) {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: { doctor_id: '', scheduled_at: '', reason: '' },
   });
 
-  // Fetch doctors list (patients can see only doctors)
+  // Fetch doctors list (patients can see only doctors, with specialty)
   const { data: doctors = [], isLoading: loadingDoctors } = useQuery({
     queryKey: ['doctors'],
     queryFn: () => api.get('/users'),
@@ -54,6 +55,19 @@ function BookingModal({ onClose }) {
   });
 
   const isLoading = loadingDoctors || loadingMe;
+
+  // Derive unique specialties from doctors list
+  const specialties = [...new Set(doctors.map(d => d.specialty).filter(Boolean))].sort();
+
+  // Filter doctors based on selected specialty
+  const filteredDoctors = selectedSpecialty
+    ? doctors.filter(d => d.specialty === selectedSpecialty)
+    : doctors;
+
+  const handleSpecialtyChange = (e) => {
+    setSelectedSpecialty(e.target.value);
+    setValue('doctor_id', ''); // reset doctor selection when specialty changes
+  };
 
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -95,12 +109,32 @@ function BookingModal({ onClose }) {
               onSubmit={handleSubmit(d => mutation.mutate(d))}
               style={{ display: 'flex', flexDirection: 'column', gap: '.85rem' }}
             >
+              {/* Specialty filter — local state, not part of form submission */}
+              {specialties.length > 0 && (
+                <div className="field">
+                  <label>Type de médecin</label>
+                  <select
+                    className="select"
+                    value={selectedSpecialty}
+                    onChange={handleSpecialtyChange}
+                  >
+                    <option value="">— Toutes les spécialités —</option>
+                    {specialties.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="field">
                 <label>Médecin</label>
                 <select className="select" {...register('doctor_id', { required: 'Requis' })}>
                   <option value="">— Choisir un médecin —</option>
-                  {doctors.map(d => (
-                    <option key={d.id} value={d.id}>Dr. {d.first_name} {d.last_name}</option>
+                  {filteredDoctors.map(d => (
+                    <option key={d.id} value={d.id}>
+                      Dr. {d.first_name} {d.last_name}
+                      {d.specialty ? ` · ${d.specialty}` : ''}
+                    </option>
                   ))}
                 </select>
                 {errors.doctor_id && <span className="form-error">{errors.doctor_id.message}</span>}
@@ -146,11 +180,12 @@ function BookingModal({ onClose }) {
   );
 }
 
-function ApptCard({ a }) {
+function ApptCard({ a, onCancel, cancelling }) {
   const s = STATUS_MAP[a.status] || { cls: 'muted', label: a.status };
   const dt = new Date(a.scheduled_at);
   const dateStr = dt.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const canCancel = a.status === 'confirmed' || a.status === 'pending';
 
   return (
     <div className="card" style={{ padding: '1.25rem' }}>
@@ -166,22 +201,54 @@ function ApptCard({ a }) {
           <span className="dot-mark" />{s.label}
         </span>
       </div>
-      <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
-        Dr. {a.doctor_first_name} {a.doctor_last_name}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '.5rem' }}>
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+            Dr. {a.doctor_first_name} {a.doctor_last_name}
+          </div>
+          {a.reason && (
+            <div className="text-xs text-muted" style={{ marginTop: '.2rem' }}>{a.reason}</div>
+          )}
+        </div>
+        {canCancel && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 12, color: 'var(--red)', borderColor: 'var(--red)', opacity: cancelling ? .6 : 1 }}
+            onClick={() => onCancel(a)}
+            disabled={cancelling}
+          >
+            {cancelling ? <span className="spinner" style={{ width: 12, height: 12 }} /> : null}
+            Annuler
+          </button>
+        )}
       </div>
-      {a.reason && (
-        <div className="text-xs text-muted" style={{ marginTop: .25 + 'rem' }}>{a.reason}</div>
-      )}
     </div>
   );
 }
 
 export default function MyAppointmentsPage() {
   const [showModal, setShowModal] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+  const queryClient = useQueryClient();
 
   const { data: appointments = [], isLoading, isError } = useQuery({
     queryKey: ['my-appointments'],
     queryFn: () => api.get('/appointments'),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (appt) => api.patch(`/appointments/${appt.id}/status`, { status: 'cancelled' }),
+    onMutate: (appt) => {
+      setCancellingId(appt.id);
+      // Optimistic update
+      queryClient.setQueryData(['my-appointments'], (old) =>
+        Array.isArray(old) ? old.map(a => a.id === appt.id ? { ...a, status: 'cancelled' } : a) : old
+      );
+    },
+    onSettled: () => {
+      setCancellingId(null);
+      queryClient.invalidateQueries({ queryKey: ['my-appointments'] });
+    },
   });
 
   // Sort: upcoming first, then past
@@ -220,11 +287,15 @@ export default function MyAppointmentsPage() {
           ))}
         </div>
       ) : appointments.length === 0 ? (
-        <div className="card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--muted)' }}>
-          <Icon name="calendar" size={40} style={{ opacity: .2, marginBottom: '1rem' }} />
-          <div style={{ fontWeight: 500, color: 'var(--ink)' }}>Aucun rendez-vous</div>
-          <div className="text-xs" style={{ marginTop: '.4rem' }}>
-            Cliquez sur « Prendre un rendez-vous » pour en planifier un
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="calendar" size={26} style={{ opacity: .55 }} />
+            </div>
+            <div className="empty-state-title">Aucun rendez-vous</div>
+            <div className="empty-state-desc">
+              Cliquez sur « Prendre un rendez-vous » pour en planifier un
+            </div>
           </div>
         </div>
       ) : (
@@ -238,7 +309,13 @@ export default function MyAppointmentsPage() {
                 À venir ({upcoming.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {upcoming.map(a => <ApptCard key={a.id} a={a} />)}
+                {upcoming.map(a => (
+                  <ApptCard
+                    key={a.id} a={a}
+                    onCancel={(appt) => cancelMutation.mutate(appt)}
+                    cancelling={cancellingId === a.id}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -251,7 +328,13 @@ export default function MyAppointmentsPage() {
                 Passés ({past.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {past.map(a => <ApptCard key={a.id} a={a} />)}
+                {past.map(a => (
+                  <ApptCard
+                    key={a.id} a={a}
+                    onCancel={(appt) => cancelMutation.mutate(appt)}
+                    cancelling={cancellingId === a.id}
+                  />
+                ))}
               </div>
             </div>
           )}

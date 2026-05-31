@@ -92,7 +92,7 @@ export default function AIPanel({ open, onClose, user }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
             <div style={{
               width: 28, height: 28, borderRadius: 8,
-              background: 'linear-gradient(135deg,#12a07c,#0d7a5f)',
+              background: 'linear-gradient(135deg,#2ec472,#22a05e)',
               display: 'grid', placeItems: 'center', color: '#fff',
             }}>
               <Icon name="sparkles" size={13} />
