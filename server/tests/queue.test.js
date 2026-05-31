@@ -37,15 +37,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await db('refresh_tokens').del();
-  await db('queue_tokens').del();
-  await db('invoices').del();
-  await db('prescriptions').del();
-  await db('consultations').del();
-  await db('appointments').del();
-  await db('patients').del();
-  await db('users').del();
-  await db('organizations').del();
+  await db.raw('TRUNCATE TABLE organizations RESTART IDENTITY CASCADE');
 });
 
 // ── GET /api/queue ────────────────────────────────────────────────────────────

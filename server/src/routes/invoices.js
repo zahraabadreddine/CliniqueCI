@@ -52,7 +52,7 @@ module.exports = function invoicesRoutes(db) {
   });
 
   // ── POST / ────────────────────────────────────────────────────────────────────
-  router.post('/', authorize('secretary'), async (req, res, next) => {
+  router.post('/', authorize('secretary', 'admin'), async (req, res, next) => {
     try {
       const { error, value } = createSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
@@ -280,10 +280,10 @@ module.exports = function invoicesRoutes(db) {
 
   /**
    * PATCH /:id/pay
-   * Secrétaire encaisse : pending → collected
-   * Enregistre le moyen de paiement et la secrétaire encaisseuse.
+   * Admin : pending → paid (directement, avec paid_at)
+   * Secrétaire : pending → collected (encaissement, validation admin requise)
    */
-  router.patch('/:id/pay', authorize('secretary'), async (req, res, next) => {
+  router.patch('/:id/pay', authorize('secretary', 'admin'), async (req, res, next) => {
     try {
       const { error, value } = paySchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
@@ -296,15 +296,26 @@ module.exports = function invoicesRoutes(db) {
         return res.status(409).json({ error: 'Cette facture ne peut plus être modifiée' });
       }
 
+      const isAdmin = req.user.role === 'admin';
+      const updateFields = isAdmin
+        ? {
+            status:          'paid',
+            payment_method:  value.payment_method,
+            validated_by_id: req.user.id,
+            paid_at:         new Date(),
+            updated_at:      new Date(),
+          }
+        : {
+            status:          'collected',
+            payment_method:  value.payment_method,
+            collected_by_id: req.user.id,
+            collected_at:    new Date(),
+            updated_at:      new Date(),
+          };
+
       const [updated] = await db('invoices')
         .where({ id: req.params.id })
-        .update({
-          status:           'collected',
-          payment_method:   value.payment_method,
-          collected_by_id:  req.user.id,
-          collected_at:     new Date(),
-          updated_at:       new Date(),
-        })
+        .update(updateFields)
         .returning([
           'id', 'amount', 'currency', 'status', 'payment_method',
           'paid_at', 'collected_at', 'created_at',

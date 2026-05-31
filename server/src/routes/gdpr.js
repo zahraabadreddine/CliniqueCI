@@ -99,7 +99,7 @@ module.exports = function gdprRoutes(db) {
           .update({
             first_name: 'Anonymisé',
             last_name: `Patient-${patientId.slice(0, 8)}`,
-            date_of_birth: null,
+            date_of_birth: '1900-01-01',
             phone: null,
             email: null,
             address: null,

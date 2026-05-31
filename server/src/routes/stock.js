@@ -37,7 +37,7 @@ module.exports = function stockRoutes(db) {
       if (!item) return res.status(404).json({ error: 'Article introuvable' });
 
       const movements = await db('stock_movements')
-        .where({ stock_item_id: item.id, organization_id: req.orgId })
+        .where({ 'stock_movements.stock_item_id': item.id, 'stock_movements.organization_id': req.orgId })
         .leftJoin('users', 'stock_movements.actor_id', 'users.id')
         .select(
           'stock_movements.id', 'stock_movements.type', 'stock_movements.quantity',
