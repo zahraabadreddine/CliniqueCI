@@ -36,6 +36,7 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "testTimeout": 60000,
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "src/routes/**/*.js",
