@@ -16,7 +16,7 @@ Les cliniques privées d'Abidjan gèrent encore leurs patients sur papier : regi
 
 | | URL |
 |---|---|
-| 🌐 **Frontend** | https://cliniqueci.vercel.app |
+| 🌐 **Frontend** | https://clinique-ci-k2uf.vercel.app |
 | ⚙️ **API** | https://cliniqueci-api.onrender.com |
 
 > ⏱️ L'API est hébergée sur Render (free tier) — le serveur se met en veille après 15 min d'inactivité. La première connexion peut prendre 30–60 secondes. Le frontend est sur Vercel (toujours disponible, routing SPA natif).
@@ -455,7 +455,7 @@ Le frontend est hébergé sur **Vercel** et le backend sur **Render** :
 
 | Service | Plateforme | Type | URL |
 |---|---|---|---|
-| `cliniqueci-client` | Vercel | Static (Vite) | https://cliniqueci.vercel.app |
+| `cliniqueci-client` | Vercel | Static (Vite) | https://clinique-ci-k2uf.vercel.app |
 | `cliniqueci-api` | Render | Web Service (Node) | https://cliniqueci-api.onrender.com |
 | `cliniqueci-db` | Render | PostgreSQL | *(interne Render)* |
 
@@ -481,7 +481,7 @@ Le frontend est hébergé sur **Vercel** et le backend sur **Render** :
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | *(Internal Database URL de Render PostgreSQL)* |
 | `JWT_SECRET` | *(chaîne secrète longue)* |
-| `CLIENT_URL` | `https://cliniqueci.vercel.app` |
+| `CLIENT_URL` | `https://clinique-ci-k2uf.vercel.app` |
 
 **cliniqueci-client** (Vercel) :
 
