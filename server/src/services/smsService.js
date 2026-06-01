@@ -26,12 +26,22 @@ if (USE_REAL_SMS) {
  * @param {string} message — texte du message (max 320 chars)
  * @returns {{ success: boolean, messageId: string, mock?: boolean }}
  */
+/**
+ * Normalise un numéro de téléphone au format E.164 (retire les espaces)
+ * Ex: "+225 07 08 09 10 11" → "+22507080910111"
+ */
+function normalizePhone(phone) {
+  return phone ? phone.replace(/\s+/g, '') : phone;
+}
+
 async function sendSms(phone, message) {
+  const normalizedPhone = normalizePhone(phone);
+
   if (USE_REAL_SMS) {
     // ── Twilio REST API ───────────────────────────────────────────────
     const url  = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
     const auth = Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64');
-    const body = new URLSearchParams({ To: phone, From: TWILIO_FROM, Body: message });
+    const body = new URLSearchParams({ To: normalizedPhone, From: TWILIO_FROM, Body: message });
 
     const res  = await fetch(url, {
       method:  'POST',
@@ -47,12 +57,12 @@ async function sendSms(phone, message) {
     }
 
     const ok = data.status !== 'failed';
-    console.log(`[SMS] ${ok ? '✅' : '❌'} ${phone} — sid: ${data.sid} — status: ${data.status}`);
+    console.log(`[SMS] ${ok ? '✅' : '❌'} ${normalizedPhone} — sid: ${data.sid} — status: ${data.status}`);
     return { success: ok, messageId: data.sid };
   }
 
   // ── Mock ──────────────────────────────────────────────────────────────
-  console.log(`[SMS MOCK] To: ${phone} | Message: ${message}`);
+  console.log(`[SMS MOCK] To: ${normalizedPhone} | Message: ${message}`);
   return {
     success: true,
     messageId: `mock-${Date.now()}`,
