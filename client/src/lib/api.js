@@ -17,15 +17,23 @@ async function request(path, options = {}) {
         ...options,
         body: options.body ? JSON.stringify(options.body) : undefined,
       });
-      if (!res2.ok) throw await res2.json();
-      return res2.json();
+      if (!res2.ok) {
+        let err;
+        try { err = await res2.json(); } catch { err = { error: `Erreur serveur (${res2.status})` }; }
+        throw err;
+      }
+      try { return await res2.json(); } catch { return {}; }
     }
     window.location.href = '/login';
     return;
   }
 
-  if (!res.ok) throw await res.json();
-  return res.json();
+  if (!res.ok) {
+    let err;
+    try { err = await res.json(); } catch { err = { error: `Erreur serveur (${res.status})` }; }
+    throw err;
+  }
+  try { return await res.json(); } catch { return {}; }
 }
 
 export const api = {
