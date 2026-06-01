@@ -20,7 +20,8 @@ async function start() {
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
-    console.error('[DB] Startup error:', err.message);
+    console.error('[DB] Startup error:', err);
+    console.error('[DB] DATABASE_URL defined:', !!process.env.DATABASE_URL);
     process.exit(1);
   }
 }
