@@ -16,10 +16,10 @@ Les cliniques privées d'Abidjan gèrent encore leurs patients sur papier : regi
 
 | | URL |
 |---|---|
-| 🌐 **Frontend** | https://cliniqueci-client.onrender.com |
+| 🌐 **Frontend** | https://cliniqueci.vercel.app |
 | ⚙️ **API** | https://cliniqueci-api.onrender.com |
 
-> ⏱️ Hébergé sur Render (free tier) — le serveur se met en veille après 15 min d'inactivité. La première connexion peut prendre 30–60 secondes.
+> ⏱️ L'API est hébergée sur Render (free tier) — le serveur se met en veille après 15 min d'inactivité. La première connexion peut prendre 30–60 secondes. Le frontend est sur Vercel (toujours disponible, routing SPA natif).
 
 **Comptes de démonstration** (créés par `npm run seed`) :
 
@@ -449,28 +449,41 @@ CliniqueCI/
 
 ---
 
-## Déploiement Render (production actuelle)
+## Déploiement (production actuelle)
 
-L'application est déployée sur [Render.com](https://render.com) (free tier) avec 3 services :
+Le frontend est hébergé sur **Vercel** et le backend sur **Render** :
 
-| Service | Type | URL |
-|---|---|---|
-| `cliniqueci-api` | Web Service (Node) | https://cliniqueci-api.onrender.com |
-| `cliniqueci-client` | Static Site (Vite) | https://cliniqueci-client.onrender.com |
-| `cliniqueci-db` | PostgreSQL | *(interne Render)* |
+| Service | Plateforme | Type | URL |
+|---|---|---|---|
+| `cliniqueci-client` | Vercel | Static (Vite) | https://cliniqueci.vercel.app |
+| `cliniqueci-api` | Render | Web Service (Node) | https://cliniqueci-api.onrender.com |
+| `cliniqueci-db` | Render | PostgreSQL | *(interne Render)* |
+
+### Déployer le frontend sur Vercel
+
+1. Aller sur [vercel.com](https://vercel.com) → **Add New Project** → importer le repo GitHub
+2. Configurer :
+   - **Root Directory** : `client`
+   - **Build Command** : `npm run build` *(auto-détecté)*
+   - **Output Directory** : `dist` *(auto-détecté)*
+3. Ajouter la variable d'environnement :
+   - `VITE_API_URL` = `https://cliniqueci-api.onrender.com/api`
+4. Cliquer **Deploy**
+
+> ✅ Vercel gère le routing SPA nativement — plus de 404 au Ctrl+Shift+R.
 
 ### Variables d'environnement requises
 
-**cliniqueci-api** :
+**cliniqueci-api** (Render) :
 
 | Variable | Valeur |
 |---|---|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | *(Internal Database URL de Render PostgreSQL)* |
 | `JWT_SECRET` | *(chaîne secrète longue)* |
-| `CLIENT_URL` | `https://cliniqueci-client.onrender.com` |
+| `CLIENT_URL` | `https://cliniqueci.vercel.app` |
 
-**cliniqueci-client** :
+**cliniqueci-client** (Vercel) :
 
 | Variable | Valeur |
 |---|---|
