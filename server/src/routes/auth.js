@@ -18,6 +18,17 @@ const loginLimiter = rateLimit({
 
 const SALT_ROUNDS = 12;
 
+// SameSite=Lax (et non 'none') : le frontend passe toujours par le proxy Vercel
+// (vercel.app → vercel.app/api/*), donc les requêtes sont same-site.
+// 'none' posait problème sur Safari iOS qui le bloquait via le proxy CDN.
+const cookieOpts = (maxAge) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
+  path: '/',
+  maxAge,
+});
+
 function issueTokens(user, res) {
   const accessToken = jwt.sign(
     { id: user.id, organization_id: user.organization_id, role: user.role },
@@ -26,12 +37,7 @@ function issueTokens(user, res) {
   );
   const refreshToken = uuidv4();
 
-  res.cookie('access_token', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-    maxAge: 15 * 60 * 1000,
-  });
+  res.cookie('access_token', accessToken, cookieOpts(15 * 60 * 1000));
 
   return refreshToken;
 }
@@ -64,12 +70,7 @@ module.exports = function authRoutes(db) {
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await trx('refresh_tokens').insert({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
 
-        res.cookie('refresh_token', refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('refresh_token', refreshToken, cookieOpts(7 * 24 * 60 * 60 * 1000));
 
         responsePayload = { user: { id: user.id, email: user.email, role: user.role, first_name: user.first_name, last_name: user.last_name, organization: org } };
       });
@@ -105,12 +106,7 @@ module.exports = function authRoutes(db) {
 
       await db('refresh_tokens').insert({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
 
-      res.cookie('refresh_token', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie('refresh_token', refreshToken, cookieOpts(7 * 24 * 60 * 60 * 1000));
 
       res.json({ user: { id: user.id, email: user.email, role: user.role, first_name: user.first_name, last_name: user.last_name } });
     } catch (err) {
@@ -128,8 +124,8 @@ module.exports = function authRoutes(db) {
       if (deleted === 0) {
         await db('refresh_tokens').where({ user_id: req.user.id }).del();
       }
-      res.clearCookie('access_token');
-      res.clearCookie('refresh_token');
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
       res.json({ message: 'Déconnecté' });
     } catch (err) {
       next(err);
@@ -169,12 +165,7 @@ module.exports = function authRoutes(db) {
       });
 
       issueTokens(user, res);
-      res.cookie('refresh_token', newRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie('refresh_token', newRefreshToken, cookieOpts(7 * 24 * 60 * 60 * 1000));
 
       res.json({ message: 'Token renouvelé' });
     } catch (err) {
