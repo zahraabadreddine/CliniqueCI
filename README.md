@@ -14,7 +14,12 @@ Les cliniques privées d'Abidjan gèrent encore leurs patients sur papier : regi
 
 ## Démo en ligne
 
-> 🚧 Déploiement VPS en cours — la démo sera disponible prochainement.
+| | URL |
+|---|---|
+| 🌐 **Frontend** | https://cliniqueci-client.onrender.com |
+| ⚙️ **API** | https://cliniqueci-api.onrender.com |
+
+> ⏱️ Hébergé sur Render (free tier) — le serveur se met en veille après 15 min d'inactivité. La première connexion peut prendre 30–60 secondes.
 
 **Comptes de démonstration** (créés par `npm run seed`) :
 
@@ -444,6 +449,39 @@ CliniqueCI/
 
 ---
 
+## Déploiement Render (production actuelle)
+
+L'application est déployée sur [Render.com](https://render.com) (free tier) avec 3 services :
+
+| Service | Type | URL |
+|---|---|---|
+| `cliniqueci-api` | Web Service (Node) | https://cliniqueci-api.onrender.com |
+| `cliniqueci-client` | Static Site (Vite) | https://cliniqueci-client.onrender.com |
+| `cliniqueci-db` | PostgreSQL | *(interne Render)* |
+
+### Variables d'environnement requises
+
+**cliniqueci-api** :
+
+| Variable | Valeur |
+|---|---|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | *(Internal Database URL de Render PostgreSQL)* |
+| `JWT_SECRET` | *(chaîne secrète longue)* |
+| `CLIENT_URL` | `https://cliniqueci-client.onrender.com` |
+
+**cliniqueci-client** :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_API_URL` | `https://cliniqueci-api.onrender.com/api` |
+
+### Migrations & Seeds
+
+Les migrations et seeds s'exécutent **automatiquement au démarrage** du serveur (`src/index.js`) — aucune commande manuelle requise.
+
+---
+
 ## Déploiement VPS
 
 ### Prérequis serveur
@@ -482,7 +520,7 @@ pm2 save && pm2 startup
 
 ## Sécurité
 
-- **JWT** dans cookies `httpOnly; Secure; SameSite=Strict` — pas de `localStorage`
+- **JWT** dans cookies `httpOnly; Secure; SameSite=None` (production) / `SameSite=Strict` (dev) — pas de `localStorage`
 - **Refresh tokens** stockés en base et révocables à la déconnexion
 - **Rate limiting** : 10 tentatives de connexion / 15 min par IP
 - **Bcrypt** rounds = 12 pour tous les mots de passe
