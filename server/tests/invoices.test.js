@@ -260,3 +260,114 @@ describe('PATCH /api/invoices/:id/cancel', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('GET /api/invoices/my-stats', () => {
+  it('retourne les stats personnelles pour un médecin (200)', async () => {
+    const res = await request(app)
+      .get('/api/invoices/my-stats')
+      .set('Cookie', doctorCookies);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('monthly');
+    expect(res.body).toHaveProperty('pending');
+    expect(res.body).toHaveProperty('today_revenue');
+    expect(res.body).toHaveProperty('month_revenue');
+    expect(res.body).toHaveProperty('unpaid_count');
+    expect(Array.isArray(res.body.monthly)).toBe(true);
+  });
+
+  it('refuse l\'accès à un admin (403 — rôle doctor requis)', async () => {
+    const res = await request(app)
+      .get('/api/invoices/my-stats')
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/invoices/admin-stats', () => {
+  it('retourne les stats globales pour un admin (200)', async () => {
+    const res = await request(app)
+      .get('/api/invoices/admin-stats')
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('monthly');
+    expect(res.body).toHaveProperty('this_month');
+    expect(res.body).toHaveProperty('last_month');
+    expect(res.body).toHaveProperty('today');
+    expect(res.body).toHaveProperty('pending');
+    expect(res.body).toHaveProperty('by_method');
+    expect(res.body).toHaveProperty('by_doctor');
+    expect(Array.isArray(res.body.monthly)).toBe(true);
+  });
+
+  it('refuse l\'accès à un médecin (403 — rôle admin requis)', async () => {
+    const res = await request(app)
+      .get('/api/invoices/admin-stats')
+      .set('Cookie', doctorCookies);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('PATCH /api/invoices/:id/validate', () => {
+  let invoiceId;
+  let secretaryCookies;
+
+  beforeEach(async () => {
+    // Créer une secrétaire pour encaisser la facture
+    await request(app).post('/api/users').set('Cookie', adminCookies).send({
+      email: 'sec-validate@test.ci',
+      password: 'Password123!',
+      first_name: 'Sec',
+      last_name: 'Validate',
+      role: 'secretary',
+    });
+    const secLogin = await request(app).post('/api/auth/login').send({
+      email: 'sec-validate@test.ci',
+      password: 'Password123!',
+    });
+    secretaryCookies = secLogin.headers['set-cookie'];
+
+    const res = await request(app).post('/api/invoices').set('Cookie', adminCookies).send({
+      patient_id: patientId,
+      amount: 30000,
+    });
+    invoiceId = res.body.id;
+  });
+
+  it('valide une facture encaissée (collected → paid)', async () => {
+    // Secrétaire encaisse → status = 'collected'
+    await request(app)
+      .patch(`/api/invoices/${invoiceId}/pay`)
+      .set('Cookie', secretaryCookies)
+      .send({ payment_method: 'cash' });
+
+    // Admin valide → status = 'paid'
+    const res = await request(app)
+      .patch(`/api/invoices/${invoiceId}/validate`)
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('paid');
+    expect(res.body.paid_at).toBeTruthy();
+  });
+
+  it('retourne 409 si la facture n\'est pas en statut "collected" (encore pending)', async () => {
+    const res = await request(app)
+      .patch(`/api/invoices/${invoiceId}/validate`)
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/collected/i);
+  });
+
+  it('retourne 404 pour une facture inexistante', async () => {
+    const res = await request(app)
+      .patch('/api/invoices/00000000-0000-0000-0000-000000000000/validate')
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(404);
+  });
+
+  it('refuse l\'accès à un médecin (403 — rôle admin requis)', async () => {
+    const res = await request(app)
+      .patch(`/api/invoices/${invoiceId}/validate`)
+      .set('Cookie', doctorCookies);
+    expect(res.status).toBe(403);
+  });
+});

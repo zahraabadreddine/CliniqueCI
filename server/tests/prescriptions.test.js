@@ -184,3 +184,69 @@ describe('GET /api/prescriptions/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('GET /api/prescriptions/verify/:token (public)', () => {
+  let qrToken;
+
+  beforeEach(async () => {
+    const res = await request(app).post('/api/prescriptions').set('Cookie', doctorCookies).send({
+      consultation_id: consultationId,
+      patient_id: patientId,
+      medications: sampleMedications,
+      notes: 'Vérification QR',
+    });
+    qrToken = res.body.qr_token;
+  });
+
+  it('retourne l\'ordonnance pour un token UUID valide (sans auth)', async () => {
+    const res = await request(app).get(`/api/prescriptions/verify/${qrToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(true);
+    expect(res.body.prescription).toBeDefined();
+    expect(res.body.prescription.id).toBeDefined();
+    expect(Array.isArray(res.body.prescription.medications)).toBe(true);
+    expect(res.body.prescription.patient_first_name).toBeDefined();
+    expect(res.body.prescription.doctor_name).toBeDefined();
+  });
+
+  it('retourne 404 pour un token au format invalide (non-UUID)', async () => {
+    const res = await request(app).get('/api/prescriptions/verify/not-a-uuid');
+    expect(res.status).toBe(404);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.error).toMatch(/introuvable|invalide/i);
+  });
+
+  it('retourne 404 pour un UUID valide mais inexistant en base', async () => {
+    const res = await request(app).get('/api/prescriptions/verify/00000000-0000-0000-0000-000000000000');
+    expect(res.status).toBe(404);
+    expect(res.body.valid).toBe(false);
+  });
+});
+
+describe('GET /api/prescriptions?patientId=', () => {
+  it('filtre les ordonnances par patientId', async () => {
+    // Créer une ordonnance pour le patient courant
+    await request(app).post('/api/prescriptions').set('Cookie', doctorCookies).send({
+      consultation_id: consultationId,
+      patient_id: patientId,
+      medications: sampleMedications,
+    });
+
+    const res = await request(app)
+      .get(`/api/prescriptions?patientId=${patientId}`)
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body.every(p => p.patient_id === patientId)).toBe(true);
+  });
+
+  it('retourne un tableau vide pour un patientId sans ordonnances', async () => {
+    const res = await request(app)
+      .get('/api/prescriptions?patientId=00000000-0000-0000-0000-000000000000')
+      .set('Cookie', adminCookies);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(0);
+  });
+});
