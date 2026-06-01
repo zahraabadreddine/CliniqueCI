@@ -9,6 +9,8 @@
  *  - Rappels SMS (différents statuts)
  *  - Formulaires de consentement + signatures
  *  - Demandes de partage de dossiers inter-cliniques
+ *
+ * Compatible avec 5 patients org1 (seed 001 démo allégée).
  */
 
 const { v4: uuidv4 } = require('uuid');
@@ -33,9 +35,10 @@ exports.seed = async function (knex) {
   const secretary = await knex('users').where({ organization_id: org1.id, role: 'secretary' }).first();
   const drBamba   = await knex('users').where({ organization_id: org2.id, role: 'doctor' }).first();
 
-  // Patients org1
+  // Patients org1 — 5 patients dans l'ordre d'insertion
+  // p1 = Karim Meïté · p2 = Fatou Koné · p3 = Ibrahima Bah · p4 = Mariam Touré · p5 = Koffi Yao
   const patients = await knex('patients').where('organization_id', org1.id).orderBy('created_at', 'asc');
-  const [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = patients;
+  const [p1, p2, p3, p4, p5] = patients;
 
   // Rendez-vous d'aujourd'hui
   const today = new Date();
@@ -96,7 +99,7 @@ exports.seed = async function (knex) {
     },
     {
       organization_id: org1.id,
-      name: 'Amlodipine 5mg',
+      name: 'Amlodipine 10mg',
       category: 'medicament',
       unit: 'comprimé',
       quantity: 3,           // ⚠️ STOCK BAS (min: 15)
@@ -106,55 +109,35 @@ exports.seed = async function (knex) {
     },
     {
       organization_id: org1.id,
-      name: 'Amoxicilline 500mg',
-      category: 'medicament',
-      unit: 'gélule',
-      quantity: 180,
-      min_quantity: 60,
-      unit_price: 45,
-      supplier: 'Pharma CI Distribution',
-    },
-    {
-      organization_id: org1.id,
-      name: 'Oméprazole 20mg',
-      category: 'medicament',
-      unit: 'gélule',
-      quantity: 75,
-      min_quantity: 30,
-      unit_price: 60,
-      supplier: 'MedSupply Abidjan',
-    },
-    {
-      organization_id: org1.id,
-      name: 'Ibuprofène 400mg',
+      name: 'Losartan 100mg',
       category: 'medicament',
       unit: 'comprimé',
-      quantity: 4,           // ⚠️ STOCK BAS (min: 20)
-      min_quantity: 20,
-      unit_price: 35,
-      supplier: 'Pharma CI Distribution',
-    },
-    {
-      organization_id: org1.id,
-      name: 'Losartan 50mg',
-      category: 'medicament',
-      unit: 'comprimé',
-      quantity: 120,
+      quantity: 90,
       min_quantity: 30,
       unit_price: 90,
       supplier: 'MedSupply Abidjan',
     },
     {
       organization_id: org1.id,
-      name: 'Sulfate ferreux 80mg',
+      name: 'Glibenclamide 5mg',
       category: 'medicament',
       unit: 'comprimé',
-      quantity: 90,
+      quantity: 45,
       min_quantity: 20,
-      unit_price: 25,
+      unit_price: 65,
       supplier: 'Pharma CI Distribution',
     },
-    // ── Matériels / Consommables ──────────────────────────────────────────────
+    {
+      organization_id: org1.id,
+      name: 'Ramipril 5mg',
+      category: 'medicament',
+      unit: 'comprimé',
+      quantity: 60,
+      min_quantity: 20,
+      unit_price: 75,
+      supplier: 'MedSupply Abidjan',
+    },
+    // ── Consommables ─────────────────────────────────────────────────────────
     {
       organization_id: org1.id,
       name: 'Seringues 5mL (stériles)',
@@ -195,71 +178,61 @@ exports.seed = async function (knex) {
       unit_price: 800,
       supplier: 'MedEquip Côte d\'Ivoire',
     },
-    {
-      organization_id: org1.id,
-      name: 'Oxymètre de pouls',
-      category: 'materiel',
-      unit: 'pièce',
-      quantity: 3,
-      min_quantity: 2,
-      unit_price: 15000,
-      supplier: 'SanteEquip CI',
-    },
   ]).returning(['id', 'name', 'quantity']);
 
   const [
-    sMetformine, sParacetamol, sAmlodipine, sAmoxicilline, sOmeprazole,
-    sIbuprofene, sLosartan, sFerSulfate, sSeringues, sGants,
-    sAlcool, sBandes, sOxymetre,
+    sMetformine, sParacetamol, sAmlodipine, sLosartan,
+    sGlibenclamide, sRamipril, sSeringues, sGants,
+    sAlcool, sBandes,
   ] = stockItems;
 
   // ════════════════════════════════════════════════════════════════════════════
   // 3. MOUVEMENTS DE STOCK (historique réaliste)
   // ════════════════════════════════════════════════════════════════════════════
   await knex('stock_movements').insert([
-    // Entrées (approvisionnement) il y a 30j
-    { organization_id: org1.id, stock_item_id: sMetformine.id,  actor_id: admin1.id, type: 'in',  quantity: 200, reason: 'Commande mensuelle — livraison Pharma CI', created_at: past(30, 9), updated_at: past(30, 9) },
-    { organization_id: org1.id, stock_item_id: sParacetamol.id, actor_id: admin1.id, type: 'in',  quantity: 300, reason: 'Commande mensuelle', created_at: past(30, 9), updated_at: past(30, 9) },
-    { organization_id: org1.id, stock_item_id: sAmlodipine.id,  actor_id: admin1.id, type: 'in',  quantity: 100, reason: 'Commande mensuelle', created_at: past(30, 9), updated_at: past(30, 9) },
-    { organization_id: org1.id, stock_item_id: sGants.id,        actor_id: admin1.id, type: 'in',  quantity: 20,  reason: 'Commande consommables — 20 boîtes', created_at: past(30, 9), updated_at: past(30, 9) },
-    { organization_id: org1.id, stock_item_id: sAlcool.id,       actor_id: admin1.id, type: 'in',  quantity: 20,  reason: 'Commande flacons alcool', created_at: past(30, 9), updated_at: past(30, 9) },
-    { organization_id: org1.id, stock_item_id: sIbuprofene.id,   actor_id: admin1.id, type: 'in',  quantity: 100, reason: 'Commande mensuelle', created_at: past(30, 9), updated_at: past(30, 9) },
-    // Sorties (dispensation) régulières
-    { organization_id: org1.id, stock_item_id: sMetformine.id,  actor_id: doctor1.id, type: 'out', quantity: 60,  reason: 'Dispensation ordonnances diabète — semaines 1-2', created_at: past(21, 10), updated_at: past(21, 10) },
-    { organization_id: org1.id, stock_item_id: sParacetamol.id, actor_id: doctor1.id, type: 'out', quantity: 30,  reason: 'Dispensation consultations fièvre/douleur', created_at: past(21, 10), updated_at: past(21, 10) },
-    { organization_id: org1.id, stock_item_id: sAmlodipine.id,  actor_id: doctor2.id, type: 'out', quantity: 50,  reason: 'Dispensation ordonnances HTA', created_at: past(21, 10), updated_at: past(21, 10) },
-    { organization_id: org1.id, stock_item_id: sGants.id,        actor_id: secretary.id, type: 'out', quantity: 8,   reason: 'Utilisation quotidienne consultations', created_at: past(14, 8), updated_at: past(14, 8) },
-    { organization_id: org1.id, stock_item_id: sAlcool.id,       actor_id: secretary.id, type: 'out', quantity: 12,  reason: 'Utilisation quotidienne — soins', created_at: past(14, 8), updated_at: past(14, 8) },
-    { organization_id: org1.id, stock_item_id: sIbuprofene.id,   actor_id: doctor2.id, type: 'out', quantity: 50,  reason: 'Dispensation ordonnances lombalgies', created_at: past(14, 10), updated_at: past(14, 10) },
-    { organization_id: org1.id, stock_item_id: sMetformine.id,  actor_id: doctor1.id, type: 'out', quantity: 80,  reason: 'Dispensation diabétiques — semaine dernière', created_at: past(7, 10), updated_at: past(7, 10) },
-    { organization_id: org1.id, stock_item_id: sSeringues.id,    actor_id: secretary.id, type: 'out', quantity: 30,  reason: 'Injections et prélèvements semaine en cours', created_at: past(7, 8), updated_at: past(7, 8) },
-    // Ajustement (inventaire) il y a 3j
-    { organization_id: org1.id, stock_item_id: sParacetamol.id, actor_id: admin1.id,  type: 'adjustment', quantity: -30, reason: 'Correction inventaire — stock physique vérifié', created_at: past(3, 11), updated_at: past(3, 11) },
-    // Entrée + sortie récentes aujourd'hui
-    { organization_id: org1.id, stock_item_id: sBandes.id,       actor_id: admin1.id,  type: 'in',  quantity: 50,  reason: 'Réapprovisionnement urgence', created_at: past(1, 9), updated_at: past(1, 9) },
-    { organization_id: org1.id, stock_item_id: sAmlodipine.id,  actor_id: doctor2.id, type: 'out', quantity: 47,  reason: 'Dispensation ordonnances HTA — semaine', created_at: past(3, 11), updated_at: past(3, 11) },
-    { organization_id: org1.id, stock_item_id: sIbuprofene.id,   actor_id: doctor1.id, type: 'out', quantity: 46,  reason: 'Dispensation anti-inflammatoires', created_at: past(1, 11), updated_at: past(1, 11) },
+    // ── Entrées (approvisionnement) il y a 30j ────────────────────────────────
+    { organization_id: org1.id, stock_item_id: sMetformine.id,    actor_id: admin1.id,     type: 'in',         quantity: 200, reason: 'Commande mensuelle — livraison Pharma CI',         created_at: past(30, 9), updated_at: past(30, 9) },
+    { organization_id: org1.id, stock_item_id: sParacetamol.id,   actor_id: admin1.id,     type: 'in',         quantity: 300, reason: 'Commande mensuelle paracétamol',                   created_at: past(30, 9), updated_at: past(30, 9) },
+    { organization_id: org1.id, stock_item_id: sAmlodipine.id,    actor_id: admin1.id,     type: 'in',         quantity: 100, reason: 'Commande Amlodipine 10mg',                         created_at: past(30, 9), updated_at: past(30, 9) },
+    { organization_id: org1.id, stock_item_id: sGants.id,          actor_id: admin1.id,     type: 'in',         quantity: 20,  reason: 'Commande consommables — 20 boîtes gants',          created_at: past(30, 9), updated_at: past(30, 9) },
+    { organization_id: org1.id, stock_item_id: sAlcool.id,         actor_id: admin1.id,     type: 'in',         quantity: 20,  reason: 'Commande flacons alcool 70°',                      created_at: past(30, 9), updated_at: past(30, 9) },
+
+    // ── Sorties (dispensation) régulières ─────────────────────────────────────
+    { organization_id: org1.id, stock_item_id: sMetformine.id,    actor_id: doctor1.id,    type: 'out',        quantity: 60,  reason: 'Dispensation ordonnances diabète — sem. 1-2',      created_at: past(21, 10), updated_at: past(21, 10) },
+    { organization_id: org1.id, stock_item_id: sParacetamol.id,   actor_id: doctor1.id,    type: 'out',        quantity: 30,  reason: 'Dispensation consultations fièvre/douleur',        created_at: past(21, 10), updated_at: past(21, 10) },
+    { organization_id: org1.id, stock_item_id: sAmlodipine.id,    actor_id: doctor2.id,    type: 'out',        quantity: 50,  reason: 'Dispensation ordonnances HTA sem. 1-2',            created_at: past(21, 10), updated_at: past(21, 10) },
+    { organization_id: org1.id, stock_item_id: sGants.id,          actor_id: secretary.id,  type: 'out',        quantity: 8,   reason: 'Utilisation quotidienne consultations — 2 semaines', created_at: past(14, 8), updated_at: past(14, 8) },
+    { organization_id: org1.id, stock_item_id: sAlcool.id,         actor_id: secretary.id,  type: 'out',        quantity: 12,  reason: 'Utilisation quotidienne soins — 2 semaines',        created_at: past(14, 8), updated_at: past(14, 8) },
+    { organization_id: org1.id, stock_item_id: sMetformine.id,    actor_id: doctor1.id,    type: 'out',        quantity: 80,  reason: 'Dispensation diabétiques — semaine dernière',      created_at: past(7, 10), updated_at: past(7, 10) },
+    { organization_id: org1.id, stock_item_id: sSeringues.id,      actor_id: secretary.id,  type: 'out',        quantity: 30,  reason: 'Injections et prélèvements semaine en cours',      created_at: past(7, 8), updated_at: past(7, 8) },
+    { organization_id: org1.id, stock_item_id: sAmlodipine.id,    actor_id: doctor2.id,    type: 'out',        quantity: 47,  reason: 'Dispensation ordonnances HTA — 3 dernières sem.',  created_at: past(3, 11), updated_at: past(3, 11) },
+
+    // ── Ajustement inventaire ─────────────────────────────────────────────────
+    { organization_id: org1.id, stock_item_id: sParacetamol.id,   actor_id: admin1.id,     type: 'adjustment', quantity: -30, reason: 'Correction inventaire — stock physique vérifié',    created_at: past(3, 11), updated_at: past(3, 11) },
+
+    // ── Réapprovisionnement urgent ────────────────────────────────────────────
+    { organization_id: org1.id, stock_item_id: sBandes.id,         actor_id: admin1.id,     type: 'in',         quantity: 50,  reason: 'Réapprovisionnement urgence bandes de gaze',        created_at: past(1, 9), updated_at: past(1, 9) },
   ]);
 
   // ════════════════════════════════════════════════════════════════════════════
   // 4. FILE D'ATTENTE DIGITALE — Tokens du jour
   // ════════════════════════════════════════════════════════════════════════════
   await knex('queue_tokens').insert([
-    // Déjà passés
-    { organization_id: org1.id, number: 1, patient_name: 'Fatou Koné',       reason: 'Consultation générale',          status: 'done',    date: todayStr, created_at: past(0, 7, 45), updated_at: past(0, 8, 55) },
-    { organization_id: org1.id, number: 2, patient_name: 'Ibrahima Bah',     reason: 'Suivi diabète',                  status: 'done',    date: todayStr, created_at: past(0, 8, 5),  updated_at: past(0, 9, 30) },
-    { organization_id: org1.id, number: 3, patient_name: 'Mariam Touré',     reason: 'Tension artérielle',             status: 'called',  date: todayStr, created_at: past(0, 8, 50), updated_at: past(0, 9, 50) },
+    // Déjà passés (patients ayant eu leur consultation)
+    { organization_id: org1.id, number: 1, patient_name: 'Fatou Koné',       reason: 'Suivi HTA',                     status: 'done',    date: todayStr, created_at: past(0, 7, 45), updated_at: past(0, 9, 5)  },
+    { organization_id: org1.id, number: 2, patient_name: 'Ibrahima Bah',     reason: 'Diabète — bilan mensuel',        status: 'done',    date: todayStr, created_at: past(0, 8, 5),  updated_at: past(0, 9, 50) },
+    // En cours (appelé — en consultation)
+    { organization_id: org1.id, number: 3, patient_name: 'Mariam Touré',     reason: 'HTA — renouvellement ordonnance', status: 'called',  date: todayStr, created_at: past(0, 8, 50), updated_at: past(0, 9, 35) },
     // En attente
-    { organization_id: org1.id, number: 4, patient_name: 'Moussa Konaté',    reason: 'Consultation générale',          status: 'waiting', date: todayStr, created_at: past(0, 9, 10), updated_at: past(0, 9, 10) },
-    { organization_id: org1.id, number: 5, patient_name: 'Adjoa Asante',     reason: 'Résultats analyses',             status: 'waiting', date: todayStr, created_at: past(0, 9, 25), updated_at: past(0, 9, 25) },
-    { organization_id: org1.id, number: 6, patient_name: 'Daouda Traoré',    reason: 'Renouvellement ordonnance HTA',  status: 'waiting', date: todayStr, created_at: past(0, 9, 40), updated_at: past(0, 9, 40) },
+    { organization_id: org1.id, number: 4, patient_name: 'Karim Meïté',      reason: 'Consultation générale',          status: 'waiting', date: todayStr, created_at: past(0, 9, 10), updated_at: past(0, 9, 10) },
+    { organization_id: org1.id, number: 5, patient_name: 'Moussa Konaté',    reason: 'Résultats analyses',             status: 'waiting', date: todayStr, created_at: past(0, 9, 25), updated_at: past(0, 9, 25) },
+    { organization_id: org1.id, number: 6, patient_name: 'Adjoa Asante',     reason: 'Renouvellement ordonnance HTA',  status: 'waiting', date: todayStr, created_at: past(0, 9, 40), updated_at: past(0, 9, 40) },
     { organization_id: org1.id, number: 7, patient_name: 'Sans rendez-vous', reason: 'Urgence — douleurs thoraciques', status: 'waiting', date: todayStr, created_at: past(0, 10, 5), updated_at: past(0, 10, 5) },
   ]);
 
   // ════════════════════════════════════════════════════════════════════════════
   // 5. RAPPELS SMS
   // ════════════════════════════════════════════════════════════════════════════
-  // On a besoin de RDV futurs
   const futureAppts = await knex('appointments')
     .where('organization_id', org1.id)
     .where('scheduled_at', '>', new Date().toISOString())
@@ -268,15 +241,15 @@ exports.seed = async function (knex) {
 
   const smsData = [];
 
-  // SMS envoyés avec succès (RDV passés)
-  if (todayAppts.length >= 2) {
+  // SMS envoyés avec succès — rappels 48h et 2h pour Fatou Koné (todayAppts[0])
+  if (todayAppts.length >= 1) {
     smsData.push({
       organization_id: org1.id,
       appointment_id: todayAppts[0].id,
       phone: p2.phone || '+225 05 06 07 08 09',
       status: 'sent',
       type: 'reminder_48h',
-      message: `Bonjour Fatou Koné, rappel de votre rendez-vous demain à 08h30 à la Clinique du Plateau. Tel: +225 27 20 31 00 00`,
+      message: `Bonjour Fatou Koné, rappel de votre rendez-vous demain à 08h30 à la Clinique du Plateau. Tél : +225 27 20 31 00 00`,
       scheduled_at: past(2, 8),
       sent_at: past(2, 8, 5),
       created_at: past(2, 7, 55),
@@ -294,10 +267,14 @@ exports.seed = async function (knex) {
       created_at: past(0, 6, 29),
       updated_at: past(0, 6, 31),
     });
+  }
+
+  // SMS envoyé — rappel 48h pour Ibrahima Bah (todayAppts[1])
+  if (todayAppts.length >= 2) {
     smsData.push({
       organization_id: org1.id,
       appointment_id: todayAppts[1].id,
-      phone: p5.phone || '+225 05 55 44 33 22',
+      phone: p3.phone || '+225 05 55 44 33 22',
       status: 'sent',
       type: 'reminder_48h',
       message: `Bonjour Ibrahima Bah, rappel de votre rendez-vous demain à 09h00 à la Clinique du Plateau.`,
@@ -308,15 +285,15 @@ exports.seed = async function (knex) {
     });
   }
 
-  // SMS en échec (numéro injoignable)
+  // SMS en échec — Karim Meïté (todayAppts[3]), numéro temporairement injoignable
   if (todayAppts.length >= 4) {
     smsData.push({
       organization_id: org1.id,
       appointment_id: todayAppts[3].id,
-      phone: p11.phone || '+225 05 33 44 55 66',
+      phone: p1.phone || '+225 07 08 09 10 11',
       status: 'failed',
       type: 'reminder_48h',
-      message: `Bonjour Moussa Konaté, rappel de votre rendez-vous demain à 10h00 à la Clinique du Plateau.`,
+      message: `Bonjour Karim Meïté, rappel de votre rendez-vous demain à 10h30 à la Clinique du Plateau.`,
       scheduled_at: past(2, 10),
       sent_at: null,
       created_at: past(2, 9, 55),
@@ -324,7 +301,7 @@ exports.seed = async function (knex) {
     });
   }
 
-  // SMS en attente d'envoi (RDV futurs)
+  // SMS en attente d'envoi (RDV futurs — 48h avant)
   for (let i = 0; i < Math.min(futureAppts.length, 4); i++) {
     const appt = futureAppts[i];
     const patientInfo = await knex('patients').where('id', appt.patient_id).first();
@@ -413,134 +390,85 @@ Je peux révoquer cette autorisation à tout moment auprès de l'accueil.`,
   const [cfGeneral, cfData, cfOperation, cfShare] = consentForms;
 
   // ════════════════════════════════════════════════════════════════════════════
-  // 7. SIGNATURES DE CONSENTEMENT
+  // 7. SIGNATURES DE CONSENTEMENT (uniquement p1–p5)
   // ════════════════════════════════════════════════════════════════════════════
+  // Signature factice (1×1 pixel transparent PNG en base64)
+  const fakeSig = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
   await knex('consent_signatures').insert([
-    // Karim Meïté — a signé le consentement général et données (il y a 14j lors de sa consultation)
+    // p1 — Karim Meïté : général + données (arrivée initiale il y a 30j)
     {
       organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p1.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      signed_at: past(14, 9, 5), created_at: past(14, 9), updated_at: past(14, 9, 5),
+      collected_by: secretary.id, signed: true, signature_data: fakeSig,
+      signed_at: past(30, 9, 5), created_at: past(30, 9), updated_at: past(30, 9, 5),
     },
     {
       organization_id: org1.id, consent_form_id: cfData.id, patient_id: p1.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      signed_at: past(14, 9, 7), created_at: past(14, 9), updated_at: past(14, 9, 7),
+      collected_by: secretary.id, signed: true, signature_data: fakeSig,
+      signed_at: past(30, 9, 7), created_at: past(30, 9), updated_at: past(30, 9, 7),
     },
-    // Fatou Koné — consentement général signé (suivi post-op)
+
+    // p2 — Fatou Koné : consentement général signé
     {
       organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p2.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      collected_by: secretary.id, signed: true, signature_data: fakeSig,
       signed_at: past(30, 11, 5), created_at: past(30, 11), updated_at: past(30, 11, 5),
     },
-    // Ibrahima Bah — signé général + données
+
+    // p3 — Ibrahima Bah : général + données signé (patient chronique, arrivée il y a 30j)
     {
-      organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p5.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      signed_at: past(30, 9, 10), created_at: past(30, 9), updated_at: past(30, 30, 10),
+      organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p3.id,
+      collected_by: secretary.id, signed: true, signature_data: fakeSig,
+      signed_at: past(30, 9, 10), created_at: past(30, 9), updated_at: past(30, 9, 10),
     },
     {
-      organization_id: org1.id, consent_form_id: cfData.id, patient_id: p5.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      organization_id: org1.id, consent_form_id: cfData.id, patient_id: p3.id,
+      collected_by: secretary.id, signed: true, signature_data: fakeSig,
       signed_at: past(30, 9, 12), created_at: past(30, 9), updated_at: past(30, 9, 12),
     },
-    // Rokia Sanogo — signé général + opération (suivi grossesse)
-    {
-      organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p8.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      signed_at: past(7, 11, 5), created_at: past(7, 11), updated_at: past(7, 11, 5),
-    },
-    // Koffi Yao — en attente de signature (données)
-    {
-      organization_id: org1.id, consent_form_id: cfData.id, patient_id: p9.id,
-      collected_by: secretary.id, signed: false,
-      signature_data: null, signed_at: null,
-      created_at: past(3, 10), updated_at: past(3, 10),
-    },
-    // Mariam Touré — en attente signature générale (aujourd'hui)
+
+    // p4 — Mariam Touré : EN ATTENTE de signature générale (arrivée aujourd'hui)
     {
       organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p4.id,
-      collected_by: secretary.id, signed: false,
-      signature_data: null, signed_at: null,
+      collected_by: secretary.id, signed: false, signature_data: null, signed_at: null,
       created_at: past(0, 9), updated_at: past(0, 9),
     },
-    // Daouda Traoré — signé général + partage dossier
+
+    // p5 — Koffi Yao : données EN ATTENTE (à signer lors de la prochaine consultation)
     {
-      organization_id: org1.id, consent_form_id: cfGeneral.id, patient_id: p13.id,
-      collected_by: secretary.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      signed_at: past(7, 10, 5), created_at: past(7, 10), updated_at: past(7, 10, 5),
+      organization_id: org1.id, consent_form_id: cfData.id, patient_id: p5.id,
+      collected_by: secretary.id, signed: false, signature_data: null, signed_at: null,
+      created_at: past(3, 10), updated_at: past(3, 10),
     },
+    // p5 — Koffi Yao : partage de dossier signé (autorisé lors du bilan il y a 7j)
     {
-      organization_id: org1.id, consent_form_id: cfShare.id, patient_id: p13.id,
-      collected_by: doctor2.id, signed: true,
-      signature_data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      organization_id: org1.id, consent_form_id: cfShare.id, patient_id: p5.id,
+      collected_by: doctor2.id, signed: true, signature_data: fakeSig,
       signed_at: past(7, 10, 8), created_at: past(7, 10), updated_at: past(7, 10, 8),
-    },
-    // Nadia Ouattara — en attente (bilan annuel récent)
-    {
-      organization_id: org1.id, consent_form_id: cfData.id, patient_id: p14.id,
-      collected_by: secretary.id, signed: false,
-      signature_data: null, signed_at: null,
-      created_at: past(3, 9), updated_at: past(3, 9),
     },
   ]);
 
   // ════════════════════════════════════════════════════════════════════════════
   // 8. DEMANDES DE PARTAGE DE DOSSIERS (inter-cliniques)
   // ════════════════════════════════════════════════════════════════════════════
-  // org2 (Cabinet Cocody) demande accès aux dossiers de patients qui ont été
-  // vus à org1 (Clinique du Plateau)
-  const expiresInMonth = future(30);
+  // org2 (Cabinet Cocody) demande accès aux dossiers de patients suivis à org1
 
   if (drBamba) {
     await knex('record_share_requests').insert([
-      // Demande approuvée — Daouda Traoré (patient a donné son accord)
-      {
-        requesting_org_id: org2.id,
-        source_org_id: org1.id,
-        patient_id: p13.id,
-        requested_by: drBamba.id,
-        status: 'approved',
-        reason: 'Patient Daouda Traoré est venu en urgence au Cabinet Cocody. Besoin du dossier HTA (antécédents, ordonnances, dernière TA mesurée).',
-        patient_consent_code: 'PAT-2024-7731',
-        expires_at: expiresInMonth,
-        created_at: past(7, 11),
-        updated_at: past(7, 14),
-      },
-      // Demande en attente — Koffi Yao
-      {
-        requesting_org_id: org2.id,
-        source_org_id: org1.id,
-        patient_id: p9.id,
-        requested_by: drBamba.id,
-        status: 'pending',
-        reason: 'Patient Koffi Yao consulte pour suivi cardiologique. Besoin des derniers ECG et ordonnances antihypertensives de la Clinique du Plateau.',
-        patient_consent_code: 'PAT-2024-7890',
-        expires_at: future(14),
-        created_at: past(1, 10),
-        updated_at: past(1, 10),
-      },
-      // Demande refusée (patient n'a pas consenti)
+      // Approuvée — Koffi Yao : patient a donné accord, dossier cardio partagé
       {
         requesting_org_id: org2.id,
         source_org_id: org1.id,
         patient_id: p5.id,
         requested_by: drBamba.id,
-        status: 'denied',
-        reason: 'Suivi diabète — patient Ibrahima Bah souhaite transférer son suivi au Cabinet Cocody.',
-        patient_consent_code: null,
-        expires_at: null,
-        created_at: past(14, 9),
-        updated_at: past(12, 11),
+        status: 'approved',
+        reason: 'Patient Koffi Yao est venu en urgence au Cabinet Cocody. Besoin du dossier HTA + ECG (antécédents, ordonnances, dernières mesures tensionnelles).',
+        patient_consent_code: 'PAT-2024-7731',
+        expires_at: future(30),
+        created_at: past(7, 11),
+        updated_at: past(7, 14),
       },
-      // Demande récente en attente (aujourd'hui)
+      // En attente — Mariam Touré : demande récente, en cours de validation
       {
         requesting_org_id: org2.id,
         source_org_id: org1.id,
@@ -553,17 +481,30 @@ Je peux révoquer cette autorisation à tout moment auprès de l'accueil.`,
         created_at: past(0, 10),
         updated_at: past(0, 10),
       },
+      // Refusée — Ibrahima Bah : patient n'a pas consenti au partage
+      {
+        requesting_org_id: org2.id,
+        source_org_id: org1.id,
+        patient_id: p3.id,
+        requested_by: drBamba.id,
+        status: 'denied',
+        reason: 'Suivi diabète — patient Ibrahima Bah souhaite éventuellement transférer son suivi au Cabinet Cocody.',
+        patient_consent_code: null,
+        expires_at: null,
+        created_at: past(14, 9),
+        updated_at: past(12, 11),
+      },
     ]);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
   console.log('✅ Seed 002 terminé :');
   console.log(`   • QR tokens ajoutés sur toutes les ordonnances`);
-  console.log(`   • 13 articles en stock (5 en alerte stock bas)`);
-  console.log(`   • 18 mouvements de stock`);
+  console.log(`   • 10 articles en stock (2 en alerte stock bas — Amlodipine, Gants, Alcool)`);
+  console.log(`   • 15 mouvements de stock (entrées, sorties, ajustement)`);
   console.log(`   • 7 tokens file d'attente (2 done, 1 called, 4 waiting)`);
   console.log(`   • ${smsData.length} rappels SMS (envoyés, en échec, en attente)`);
   console.log(`   • 4 formulaires de consentement`);
-  console.log(`   • 11 signatures (8 signées, 3 en attente)`);
-  console.log(`   • 4 demandes de partage de dossiers inter-cliniques`);
+  console.log(`   • 8 signatures (5 signées, 3 en attente)`);
+  console.log(`   • 3 demandes de partage de dossiers inter-cliniques (1 approuvée, 1 en attente, 1 refusée)`);
 };

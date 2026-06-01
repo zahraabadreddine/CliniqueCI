@@ -144,6 +144,25 @@ export default function NotificationsDropdown({ open, onClose }) {
           </div>
         )}
 
+        {!isLoading && notifications.length > 0 && (
+          <div
+            style={{
+              padding: '0.55rem 1rem',
+              background: '#f8fffe',
+              borderBottom: '1px solid var(--border)',
+              textAlign: 'right',
+            }}
+          >
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: '0.75rem', padding: '3px 10px', color: 'var(--primary)' }}
+              onClick={() => { navigate('/notifications'); onClose(); }}
+            >
+              Voir tout →
+            </button>
+          </div>
+        )}
+
         {notifications.map((n) => {
           const meta = TYPE_META[n.type] ?? TYPE_META.system;
           return (

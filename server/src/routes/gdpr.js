@@ -48,18 +48,23 @@ module.exports = function gdprRoutes(db) {
           .select('consent_forms.title', 'consent_signatures.signed', 'consent_signatures.signed_at'),
       ]);
 
+      const safeParse = (val, fallback = null) => {
+        if (typeof val !== 'string') return val ?? fallback;
+        try { return JSON.parse(val); } catch { return val; }
+      };
+
       const exportData = {
         exported_at: new Date().toISOString(),
         patient: {
           ...patient,
-          allergies: typeof patient.allergies === 'string' ? JSON.parse(patient.allergies || '[]') : patient.allergies,
-          chronic_diseases: typeof patient.chronic_diseases === 'string' ? JSON.parse(patient.chronic_diseases || '[]') : patient.chronic_diseases,
+          allergies: safeParse(patient.allergies, []),
+          chronic_diseases: safeParse(patient.chronic_diseases, []),
         },
         appointments,
         consultations,
         prescriptions: prescriptions.map(p => ({
           ...p,
-          medications: typeof p.medications === 'string' ? JSON.parse(p.medications) : p.medications,
+          medications: safeParse(p.medications),
         })),
         invoices,
         consent_signatures: consentSigs,

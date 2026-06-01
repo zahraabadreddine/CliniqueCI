@@ -26,6 +26,7 @@ import ConsentPage from './pages/ConsentPage';
 import GdprPage from './pages/GdprPage';
 import RecordSharesPage from './pages/RecordSharesPage';
 import VerifyPrescriptionPage from './pages/VerifyPrescriptionPage';
+import NotificationsPage from './pages/NotificationsPage';
 import Layout from './components/Layout';
 
 export const AuthContext = createContext(null);
@@ -194,6 +195,11 @@ export default function App() {
           <Route path="record-shares" element={
             <PrivateRoute roles={['admin']}>
               <RecordSharesPage />
+            </PrivateRoute>
+          } />
+          <Route path="notifications" element={
+            <PrivateRoute roles={['admin', 'doctor', 'secretary', 'patient']}>
+              <NotificationsPage />
             </PrivateRoute>
           } />
         </Route>

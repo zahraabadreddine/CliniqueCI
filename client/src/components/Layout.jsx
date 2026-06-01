@@ -21,8 +21,8 @@ function getNavItems(role) {
       { kind: 'label', label: 'SUIVI' },
       { id: 'patients', to: '/patients', icon: 'users', label: 'Dossiers patients' },
       { id: 'invoices',      to: '/invoices',      icon: 'invoice', label: 'Encaissement' },
-      { id: 'sms-reminders', to: '/sms-reminders', icon: 'bell',    label: 'Rappels SMS' },
-      { id: 'consent',       to: '/consent',       icon: 'file',    label: 'Consentements' },
+      { id: 'sms-reminders', to: '/sms-reminders', icon: 'bell', label: 'Rappels SMS' },
+      { id: 'consent',       to: '/consent',       icon: 'file', label: 'Consentements' },
     ];
   }
 

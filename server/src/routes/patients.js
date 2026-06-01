@@ -138,7 +138,7 @@ module.exports = function patientsRoutes(db) {
             'users.first_name as doctor_first_name', 'users.last_name as doctor_last_name')
           .orderBy('appointments.scheduled_at', 'desc'),
         db('consultations')
-          .where({ patient_id: patient.id, organization_id: req.orgId })
+          .where({ 'consultations.patient_id': patient.id, 'consultations.organization_id': req.orgId })
           .join('users', 'consultations.doctor_id', 'users.id')
           .select('consultations.id', 'consultations.chief_complaint', 'consultations.diagnosis',
             'consultations.notes', 'consultations.created_at',
