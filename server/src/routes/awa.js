@@ -260,20 +260,39 @@ module.exports = function awaRoutes(db) {
       try {
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+        // Anthropic API requires messages to start with a 'user' message.
+        // The frontend may include an initial assistant greeting (UI chrome) —
+        // strip any leading assistant messages before sending to the API.
+        let apiMessages = messages.map(m => ({
+          role: m.role,
+          content: String(m.content),
+        }));
+        const firstUserIdx = apiMessages.findIndex(m => m.role === 'user');
+        if (firstUserIdx === -1) {
+          // No user message at all — nothing to send to the AI
+          return res.json({ content: getDemoResponse(lastUserMsg, userRole, context) });
+        }
+        if (firstUserIdx > 0) {
+          apiMessages = apiMessages.slice(firstUserIdx);
+        }
+
         const response = await client.messages.create({
           model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 2048,
+          max_tokens: 4096,
           system: systemPrompt,
-          messages: messages.map(m => ({
-            role: m.role,
-            content: String(m.content),
-          })),
+          messages: apiMessages,
         });
 
         return res.json({ content: response.content[0].text });
       } catch (apiErr) {
-        // Fallback to demo for billing/quota errors
-        if (apiErr.status === 400 || apiErr.status === 429 || apiErr.status === 402) {
+        // Fallback to demo for quota / billing errors — log for diagnostics
+        if (apiErr.status === 429 || apiErr.status === 402) {
+          console.warn('[Awa] API quota/billing error, falling back to demo:', apiErr.status);
+          return res.json({ content: getDemoResponse(lastUserMsg, userRole, context) });
+        }
+        // 400: malformed request — log and fall back so the user isn't blocked
+        if (apiErr.status === 400) {
+          console.error('[Awa] API 400 error:', apiErr.message || apiErr);
           return res.json({ content: getDemoResponse(lastUserMsg, userRole, context) });
         }
         throw apiErr;

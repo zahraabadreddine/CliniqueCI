@@ -46,6 +46,10 @@ export default function AIPanel({ open, onClose, user }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
+      // uiOnly = shown in the chat but NOT sent to the Anthropic API.
+      // The API requires messages to start with a 'user' turn, so the
+      // welcome greeting must never appear in the payload.
+      uiOnly: true,
       content: `Bonjour${user?.first_name ? ` ${user.first_name}` : ''} ! Je suis Awa, votre assistante IA. Comment puis-je vous aider aujourd'hui ?`,
     },
   ]);
@@ -66,7 +70,11 @@ export default function AIPanel({ open, onClose, user }) {
     setLoading(true);
     try {
       const res = await api.post('/awa/chat', {
-        messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+        // Exclude uiOnly messages (e.g. the initial static greeting) —
+        // the Anthropic API requires the conversation to start with a user message.
+        messages: [...messages, userMsg]
+          .filter(m => !m.uiOnly)
+          .map(m => ({ role: m.role, content: m.content })),
         userRole: user?.role,
       });
       setMessages(prev => [...prev, { role: 'assistant', content: res.content }]);
