@@ -9,6 +9,7 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
+    "setup": "knex migrate:latest && knex seed:run",
     "test": "jest --runInBand --forceExit",
     "test:coverage": "jest --runInBand --forceExit --coverage"
   },
