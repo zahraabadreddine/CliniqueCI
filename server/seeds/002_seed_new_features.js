@@ -230,6 +230,16 @@ exports.seed = async function (knex) {
     { organization_id: org1.id, number: 7, patient_name: 'Sans rendez-vous', reason: 'Urgence — douleurs thoraciques', status: 'waiting', date: todayStr, created_at: past(0, 10, 5), updated_at: past(0, 10, 5) },
   ]);
 
+  // File d'attente org2 — Cabinet Médical Cocody
+  await knex('queue_tokens').insert([
+    { organization_id: org2.id, number: 1, patient_name: 'Ahou Diallo',       reason: 'Consultation générale',              status: 'done',    date: todayStr, created_at: past(0, 8, 0),  updated_at: past(0, 8, 50)  },
+    { organization_id: org2.id, number: 2, patient_name: 'Kouamé Yeboué',     reason: 'Renouvellement ordonnance',           status: 'done',    date: todayStr, created_at: past(0, 8, 20), updated_at: past(0, 9, 40)  },
+    { organization_id: org2.id, number: 3, patient_name: 'Mariétou Sow',      reason: 'Diabète — suivi mensuel',             status: 'called',  date: todayStr, created_at: past(0, 8, 55), updated_at: past(0, 9, 55)  },
+    { organization_id: org2.id, number: 4, patient_name: 'Lamine Ouédraogo',  reason: 'Douleurs articulaires',               status: 'waiting', date: todayStr, created_at: past(0, 9, 20), updated_at: past(0, 9, 20)  },
+    { organization_id: org2.id, number: 5, patient_name: 'Fatimata Koné',     reason: 'Grossesse — consultation prénatale',  status: 'waiting', date: todayStr, created_at: past(0, 9, 45), updated_at: past(0, 9, 45)  },
+    { organization_id: org2.id, number: 6, patient_name: 'Sans rendez-vous',  reason: 'Fièvre et maux de gorge',             status: 'waiting', date: todayStr, created_at: past(0, 10, 10), updated_at: past(0, 10, 10) },
+  ]);
+
   // ════════════════════════════════════════════════════════════════════════════
   // 5. RAPPELS SMS
   // ════════════════════════════════════════════════════════════════════════════

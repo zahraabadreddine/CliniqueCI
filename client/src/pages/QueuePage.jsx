@@ -25,7 +25,7 @@ export default function QueuePage() {
   const { data: queue, isLoading } = useQuery({
     queryKey: ['queue'],
     queryFn: () => api.get('/queue'),
-    refetchInterval: 10_000, // refresh every 10s
+    refetchInterval: 3_000, // refresh every 3s for near-real-time sync
   });
 
   const addMut = useMutation({
@@ -56,6 +56,8 @@ export default function QueuePage() {
   const tokens = queue?.tokens || [];
   const waiting = tokens.filter(t => t.status === 'waiting');
   const current = queue?.current;
+  // Exclude the currently-called token from the list — it's already shown in the banner
+  const listTokens = tokens.filter(t => t.status !== 'called');
 
   return (
     <div className="page-content">
@@ -79,18 +81,21 @@ export default function QueuePage() {
             <div style={{ fontSize: 48, fontWeight: 900, color: '#d97706', lineHeight: 1 }}>#{current.number}</div>
             {current.patient_name && <div style={{ fontSize: 16, color: '#78350f', marginTop: 4 }}>{current.patient_name}</div>}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => statusMut.mutate({ id: current.id, status: 'done' })}
-              style={{ background: '#0d7a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
-              ✅ Terminé
-            </button>
-          </div>
+          {canCall && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => statusMut.mutate({ id: current.id, status: 'done' })}
+                disabled={statusMut.isPending}
+                style={{ background: '#0d7a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
+                ✅ Consultation terminée
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
         {/* Queue list */}
-        <div>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           {/* Actions bar */}
           {canCall && (
             <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
@@ -103,35 +108,38 @@ export default function QueuePage() {
 
           {isLoading ? (
             <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>Chargement...</div>
-          ) : tokens.length === 0 ? (
+          ) : listTokens.length === 0 && !current ? (
             <div style={{ textAlign: 'center', padding: 60, color: '#999', background: '#f9fafb', borderRadius: 12 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
               <div>Aucun patient en attente aujourd'hui</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {tokens.map(token => {
+              {listTokens.map(token => {
                 const st = STATUS_STYLE[token.status] || STATUS_STYLE.waiting;
                 return (
-                  <div key={token.id} style={{ background: '#fff', border: `1px solid ${token.status === 'called' ? '#d97706' : '#e5e7eb'}`, borderRadius: 10, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{ fontSize: 26, fontWeight: 900, color: '#0d7a5f', minWidth: 50 }}>#{token.number}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: '#1a2e1a' }}>{token.patient_name || 'Patient anonyme'}</div>
-                        {token.reason && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{token.reason}</div>}
+                  <div key={token.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: token.status === 'done' ? '#9ca3af' : '#0d7a5f', minWidth: 50, flexShrink: 0 }}>#{token.number}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, color: '#1a2e1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.patient_name || 'Patient anonyme'}</div>
+                        {token.reason && <div style={{ fontSize: 12, color: '#666', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.reason}</div>}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ background: st.bg, color: st.color, borderRadius: 12, padding: '3px 12px', fontSize: 12, fontWeight: 600 }}>{st.label}</span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                      <span style={{ background: st.bg, color: st.color, borderRadius: 12, padding: '3px 12px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{st.label}</span>
                       {token.status === 'waiting' && canCall && (
                         <button onClick={() => statusMut.mutate({ id: token.id, status: 'called' })}
-                          style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #d97706', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                          Appeler
+                          disabled={statusMut.isPending}
+                          style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #d97706', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          📢 Appeler
                         </button>
                       )}
-                      {(token.status === 'waiting' || token.status === 'called') && (
+                      {token.status === 'waiting' && (isSecretary || isAdmin) && (
                         <button onClick={() => statusMut.mutate({ id: token.id, status: 'cancelled' })}
-                          style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 12 }}>
+                          disabled={statusMut.isPending}
+                          style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 12 }}
+                          title="Annuler">
                           ✕
                         </button>
                       )}
@@ -144,7 +152,7 @@ export default function QueuePage() {
         </div>
 
         {/* Add patient panel — secrétaire seulement */}
-        <div>
+        <div style={{ flex: '0 0 300px', minWidth: 260 }}>
           {canAdd && <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1a2e1a', marginBottom: 16 }}>➕ Ajouter à la file</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

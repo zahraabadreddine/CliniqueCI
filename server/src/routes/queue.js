@@ -16,7 +16,7 @@ module.exports = function queueRoutes(db) {
       const date = req.query.date || today();
       const tokens = await db('queue_tokens')
         .where({ organization_id: req.orgId, date })
-        .select('id', 'number', 'patient_name', 'reason', 'status', 'date', 'created_at')
+        .select('id', 'number', 'patient_name', 'reason', 'status', 'date', 'created_at', 'updated_at')
         .orderBy('number');
 
       const waiting = tokens.filter(t => t.status === 'waiting').length;
@@ -34,24 +34,29 @@ module.exports = function queueRoutes(db) {
       const { patient_name, reason } = req.body;
       const date = today();
 
-      // Next number = max existing today + 1
-      const result = await db('queue_tokens')
-        .where({ organization_id: req.orgId, date })
-        .max('number as max')
-        .first();
+      // Use a transaction with row-level lock to avoid race condition on number generation
+      const token = await db.transaction(async (trx) => {
+        const result = await trx('queue_tokens')
+          .where({ organization_id: req.orgId, date })
+          .forUpdate()
+          .max('number as max')
+          .first();
 
-      const nextNumber = (result.max || 0) + 1;
+        const nextNumber = (result.max || 0) + 1;
 
-      const [token] = await db('queue_tokens')
-        .insert({
-          organization_id: req.orgId,
-          number: nextNumber,
-          patient_name: patient_name || null,
-          reason: reason || null,
-          status: 'waiting',
-          date,
-        })
-        .returning(['id', 'number', 'patient_name', 'reason', 'status', 'date', 'created_at']);
+        const [inserted] = await trx('queue_tokens')
+          .insert({
+            organization_id: req.orgId,
+            number: nextNumber,
+            patient_name: patient_name || null,
+            reason: reason || null,
+            status: 'waiting',
+            date,
+          })
+          .returning(['id', 'number', 'patient_name', 'reason', 'status', 'date', 'created_at']);
+
+        return inserted;
+      });
 
       res.status(201).json(token);
     } catch (err) {
@@ -104,10 +109,10 @@ module.exports = function queueRoutes(db) {
     try {
       const date = today();
 
-      // Reset any currently called token
+      // Reset any currently called token back to waiting (doctor must mark done manually)
       await db('queue_tokens')
         .where({ organization_id: req.orgId, date, status: 'called' })
-        .update({ status: 'done', updated_at: db.fn.now() });
+        .update({ status: 'waiting', updated_at: db.fn.now() });
 
       // Get the next waiting token
       const next = await db('queue_tokens')
