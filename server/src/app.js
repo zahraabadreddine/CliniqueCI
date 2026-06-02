@@ -1,4 +1,5 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
@@ -30,15 +31,19 @@ authenticate.init(db);
 
 const app = express();
 
+// En production (Render), le frontend React est servi depuis le même serveur Express
+// → même origine → pas de CORS sur les appels API.
+// En développement, on accepte localhost:* pour le proxy Vite.
 app.use(cors({
   origin: (origin, callback) => {
-    // En développement, accepter tous les ports localhost
     if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
-    // En production, n'accepter que CLIENT_URL
-    const allowed = process.env.CLIENT_URL || 'http://localhost:5173';
-    callback(origin === allowed ? null : new Error('CORS non autorisé'), origin === allowed);
+    // En production same-origin, les requêtes API n'ont pas d'origin croisée
+    // mais on accepte quand même CLIENT_URL si défini (ex: tests externes)
+    const allowed = process.env.CLIENT_URL;
+    if (allowed && origin === allowed) return callback(null, true);
+    callback(null, false);
   },
   credentials: true,
 }));
@@ -64,6 +69,17 @@ app.use('/api/gdpr', gdprRoutes(db));
 app.use('/api/record-shares', recordSharesRoutes(db));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// En production, servir le build React comme fichiers statiques
+// (même serveur = même origine = cookies httpOnly sans problème)
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.join(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+  // Catch-all SPA : toute route non-API renvoie index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use(errorHandler);
 

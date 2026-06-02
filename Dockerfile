@@ -17,5 +17,6 @@ COPY --from=server-build /app/server ./server
 COPY --from=client-build /app/client/dist ./client/dist
 
 WORKDIR /app/server
+ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "src/index.js"]
+CMD ["node", "src/app.js"]

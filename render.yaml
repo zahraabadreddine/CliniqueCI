@@ -1,11 +1,13 @@
 services:
-  # ── Backend API ────────────────────────────────────────────────────────────
+  # ── Service unique : Express sert l'API + le build React ──────────────────
+  # Même origine → cookies httpOnly fonctionnent sans SameSite=None
   - type: web
-    name: cliniqueci-api
+    name: cliniqueci
     runtime: node
-    rootDir: server
-    buildCommand: npm ci --omit=dev
-    startCommand: npx knex migrate:latest && node src/index.js
+    # Build : 1) construire le frontend, 2) installer les deps backend
+    buildCommand: cd client && npm ci && npm run build && cd ../server && npm ci --omit=dev
+    # Start : migrer la DB puis démarrer le serveur
+    startCommand: cd server && npx knex migrate:latest --env production && node src/app.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -18,35 +20,33 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      - key: CLIENT_URL
-        sync: false   # à renseigner manuellement : URL du frontend Render
-      - key: ANTHROPIC_API_KEY
-        sync: false   # optionnel — laisser vide si pas utilisé
+      # Clés VAPID pour les notifications push
+      # Générer avec : npx web-push generate-vapid-keys
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY
         sync: false
       - key: VAPID_EMAIL
         sync: false
-
-  # ── Frontend React ─────────────────────────────────────────────────────────
-  - type: web
-    name: cliniqueci-client
-    runtime: static
-    rootDir: client
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        sync: false   # à renseigner manuellement : https://cliniqueci-api.onrender.com/api
+      # Optionnel : clé Anthropic pour l'assistant Awa
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Optionnel : Twilio pour les SMS réels
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      # Optionnel : WhatsApp Business API
+      - key: WHATSAPP_MODE
+        value: simulation
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
 
 databases:
   - name: cliniqueci-db
