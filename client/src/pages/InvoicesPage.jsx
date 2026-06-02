@@ -322,6 +322,7 @@ function ToValidateSection({ invoices, onValidate, validateMutation }) {
           Total : {new Intl.NumberFormat('fr-FR').format(invoices.reduce((s, i) => s + Number(i.amount), 0))} F
         </span>
       </div>
+      <div className="table-wrapper">
       <table className="simple">
         <thead>
           <tr>
@@ -373,6 +374,7 @@ function ToValidateSection({ invoices, onValidate, validateMutation }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -820,6 +822,7 @@ export default function InvoicesPage() {
             </div>
           </div>
         ) : (
+          <div className="table-wrapper">
           <table className="simple">
             <thead>
               <tr>
@@ -906,6 +909,7 @@ export default function InvoicesPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

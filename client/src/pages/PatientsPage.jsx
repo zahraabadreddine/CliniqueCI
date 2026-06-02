@@ -551,6 +551,7 @@ export default function PatientsPage() {
             )}
           </div>
         ) : (
+          <div className="table-wrapper">
           <table className="simple">
             <thead>
               <tr>
@@ -634,6 +635,7 @@ export default function PatientsPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

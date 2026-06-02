@@ -255,6 +255,7 @@ function ConsultationDetailModal({ consultation: c, userRole, onClose }) {
                         ? { borderTop: '1px solid var(--border)', paddingTop: '.75rem', marginTop: '.75rem' }
                         : {}}
                     >
+                      <div className="table-wrapper">
                       <table className="simple" style={{ marginTop: 0 }}>
                         <thead>
                           <tr>
@@ -275,6 +276,7 @@ function ConsultationDetailModal({ consultation: c, userRole, onClose }) {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                       {rx.notes && (
                         <p style={{ margin: '.5rem 0 0', fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
                           {rx.notes}
@@ -477,6 +479,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
         ) : (
+          <div className="table-wrapper">
           <table className="simple">
             <thead>
               <tr>
@@ -498,6 +501,7 @@ export default function ConsultationsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

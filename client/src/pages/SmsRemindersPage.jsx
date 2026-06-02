@@ -63,7 +63,7 @@ function AdminView() {
   const deliveryRate = totalSms > 0 ? Math.round((sent / totalSms) * 100) : 0;
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="page-content">
 
       {/* en-tête */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
@@ -212,7 +212,7 @@ function SecretaryView() {
   const canSend      = phone.trim().length > 0 && message.trim().length > 0 && bodyLen <= MAX_BODY_CHARS && !sendMut.isPending;
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="page-content">
 
       {/* en-tête */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
@@ -416,7 +416,7 @@ function ReminderTable({
           <div style={{ fontSize: 14 }}>Aucun SMS{filter ? ' avec ce statut' : ''}</div>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-wrapper">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>

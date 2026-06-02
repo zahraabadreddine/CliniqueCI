@@ -159,7 +159,7 @@ export default function WeeklyPlanningPage() {
         {isLoading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--muted)' }}>Chargement du planning…</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrapper">
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
               <thead>
                 <tr style={{ background: 'var(--cream-2)' }}>

@@ -61,7 +61,7 @@ export default function GdprPage() {
   });
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 900, margin: '0 auto' }}>
+    <div className="page-content">
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2e1a', margin: 0 }}>🔒 Sauvegarde & Export RGPD</h1>

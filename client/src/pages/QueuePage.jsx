@@ -58,7 +58,7 @@ export default function QueuePage() {
   const current = queue?.current;
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1000, margin: '0 auto' }}>
+    <div className="page-content">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>

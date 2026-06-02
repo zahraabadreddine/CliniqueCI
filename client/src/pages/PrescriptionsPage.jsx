@@ -386,7 +386,7 @@ export default function PrescriptionsPage() {
             </div>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrapper">
             <table className="simple" style={{ width: '100%' }}>
               <thead>
                 <tr>

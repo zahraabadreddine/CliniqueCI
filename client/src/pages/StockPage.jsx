@@ -89,7 +89,7 @@ export default function StockPage() {
   const filtered = items.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="page-content">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
@@ -145,6 +145,7 @@ export default function StockPage() {
         <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>Aucun article trouvé</div>
       ) : (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div className="table-wrapper">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -182,6 +183,7 @@ export default function StockPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
