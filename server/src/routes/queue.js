@@ -36,13 +36,16 @@ module.exports = function queueRoutes(db) {
 
       // Use a transaction with row-level lock to avoid race condition on number generation
       const token = await db.transaction(async (trx) => {
-        const result = await trx('queue_tokens')
+        // ORDER BY ... DESC LIMIT 1 FOR UPDATE — PostgreSQL forbids FOR UPDATE with aggregate functions
+        const last = await trx('queue_tokens')
           .where({ organization_id: req.orgId, date })
+          .orderBy('number', 'desc')
+          .limit(1)
           .forUpdate()
-          .max('number as max')
+          .select('number')
           .first();
 
-        const nextNumber = (result.max || 0) + 1;
+        const nextNumber = (last ? last.number : 0) + 1;
 
         const [inserted] = await trx('queue_tokens')
           .insert({
